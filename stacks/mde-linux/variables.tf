@@ -53,3 +53,18 @@ variable "vm_size" {
   type        = string
   default     = "Standard_D2lds_v6"
 }
+
+variable "key_vault_ip_rules" {
+  description = <<DESC
+IPs or CIDRs Terraform keeps open on the key vault's firewall for the length of the run. The pipelines
+pass the runner's egress IP on EVERY Terraform step: on a first run that lets the vault and the SSH
+key be created in one apply (the terraform-azure action's key vault dance has nothing to open until
+the vault exists), and on every run it stops Terraform revoking its own access mid-apply (an apply
+that removed the dance's rule would have the later secret updates in the same apply refused). The
+dance removes the rule after each step, so the vault is closed between runs. Empty (the default) for
+anything else.
+DESC
+
+  type    = list(string)
+  default = []
+}

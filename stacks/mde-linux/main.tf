@@ -1,7 +1,8 @@
 # An Ubuntu VM running Microsoft Defender for Endpoint, configured by Ansible through an Azure
 # Bastion tunnel that exists only for the length of the run. The VM has no public IP and nothing
-# reaches it except SSH from the bastion subnet; Ansible signs in with Entra ID (short-lived OpenSSH
-# certificates for the CI identity), so no SSH key is stored anywhere.
+# reaches it except SSH from the bastion subnet. Ansible signs in either with Entra ID (short-lived
+# OpenSSH certificates for the CI identity) or with the admin account's SSH key, which Terraform
+# generates ephemerally and keeps only in a firewalled key vault (never in plan or state).
 locals {
   location = lookup(var.regions, var.loc, "uksouth")
   suffix   = "${var.short}-${var.loc}-${terraform.workspace}-001"
@@ -14,6 +15,8 @@ locals {
   bas_name     = "bas-mde-${local.suffix}"
   pip_bas_name = "pip-bas-mde-${local.suffix}"
   vm_name      = "vm-mde-${local.suffix}"
+  kv_name      = "kv-mde-${local.suffix}"
+  ssh_key_name = "ssh-mde-${local.suffix}"
   subnet_vm    = "snet-vm-${local.vnet_name}"
 
   vm_subnet_prefix      = "10.20.1.0/24"
@@ -116,8 +119,59 @@ module "nat_gateway" {
   subnet_associations    = { (local.subnet_vm) = module.network.subnet_ids[local.subnet_vm] }
 }
 
-# The Ubuntu VM. The SSH key is a placeholder nobody holds the private half of: Entra ID is the way
-# in. The AnsibleGroups tag is what the bastion-ansible script builds its inventory from.
+# The vault for the admin account's SSH private key. Deny-by-default network ACL with nothing
+# allow-listed between runs: every Terraform step goes through the terraform-azure action's key vault
+# firewall dance and passes the runner in key_vault_ip_rules (see its description), and the
+# bastion-ansible script opens the vault to itself only for the seconds it takes to fetch the key. Access policies rather than RBAC, so the
+# deployer can write the key the moment the vault exists (a new role assignment takes minutes to
+# apply). Purge protection is off so a destroy frees the globally unique name for the next run.
+module "keyvault" {
+  source  = "libre-devops/keyvault/azurerm"
+  version = "~> 4.0"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
+
+  key_vaults = {
+    (local.kv_name) = {
+      rbac_authorization_enabled = false
+      purge_protection_enabled   = false
+      soft_delete_retention_days = 7
+      network_acls = {
+        default_action = "Deny"
+        bypass         = "AzureServices"
+        ip_rules       = var.key_vault_ip_rules
+      }
+      access_policies = [
+        {
+          object_id          = data.azurerm_client_config.current.object_id
+          secret_permissions = ["Get", "List", "Set", "Delete", "Recover", "Purge"]
+        }
+      ]
+    }
+  }
+}
+
+# The admin account's key pair: generated ephemerally, both halves written to the vault write-only,
+# the public half feeding the VM. Bump value_wo_version in the module call to rotate it.
+module "ssh_key" {
+  source  = "libre-devops/ssh-key/azurerm"
+  version = "~> 4.0"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
+
+  key_vault_id = module.keyvault.ids[local.kv_name]
+
+  ssh_keys = {
+    (local.ssh_key_name) = {}
+  }
+}
+
+# The Ubuntu VM. Its tags drive the bastion-ansible script: AnsibleGroups builds the inventory, and
+# AnsibleUser plus AnsibleSshKeySecret say who to sign in as and where the key lives for --auth key.
 module "linux_vm" {
   source  = "libre-devops/linux-vm/azurerm"
   version = "~> 4.1"
@@ -133,9 +187,13 @@ module "linux_vm" {
       source_image_simple = "Ubuntu2404"
       subnet_id           = module.network.subnet_ids[local.subnet_vm]
       admin_ssh_keys = [{
-        public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCtbmPhzCR+ZpI/Y4H1IvPEI+tvGT4R5ReLtj5QZVcRXJiRdIbYsb6sjaYu8JcR6vzSHAlJcx0zmcSP4SR7HqtuXbODv+OvVpBCoil9LWbCfOgOQ6XZ3oSFYe8lFllbFLiM7I+ok+s7Cygnu58fil7pDdBFrS7DZRjvT87RrOX0dp2LDNNN7LYFy5nwHvkBv9z36q9RFGcP4e0XDNtU0+LGnolz4oDWkJt/0POaHIxnJJX7ge0r0bReZq/t1XRr/RrhPYk6gkWsSkfbwwxGPA2UdxFRDVn2aMx6Hz8gQfcHRS2kEvKRMIgQfBOmB6OInLCLaUZRWm5YdEBZXwtdREor placeholder"
+        public_key = module.ssh_key.public_keys_openssh[local.ssh_key_name]
       }]
-      tags = { AnsibleGroups = "mde_linux" }
+      tags = {
+        AnsibleGroups       = "mde_linux"
+        AnsibleUser         = "azureuser"
+        AnsibleSshKeySecret = module.ssh_key.private_key_secret_versionless_ids[local.ssh_key_name]
+      }
     }
   }
 

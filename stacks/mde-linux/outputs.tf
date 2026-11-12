@@ -8,6 +8,11 @@ output "bastion_name" {
   value       = var.access_enabled ? local.bas_name : null
 }
 
+output "key_vault_name" {
+  description = "The key vault holding the admin account's SSH key pair."
+  value       = local.kv_name
+}
+
 output "resource_group_name" {
   description = "The resource group holding the stack, which the bastion-ansible script targets."
   value       = local.rg_name

@@ -13,8 +13,7 @@ default:
 deps:
     ansible-galaxy role install -r ansible/requirements.yml -p ansible/roles --force
 
-# Offline checks, as CI runs them: fmt, validate and tflint per stack, trivy, shellcheck, and an
-# Ansible syntax check of every playbook.
+# Offline checks as CI runs them: fmt, validate, tflint, trivy, shellcheck, Ansible syntax.
 validate: deps
     terraform fmt -check -recursive
     for d in stacks/*/; do \
@@ -27,15 +26,13 @@ validate: deps
     shellcheck scripts/*.sh
     for p in ansible/playbooks/*.yml; do ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook --syntax-check -i localhost, "$p"; done
 
-# Run a playbook through the bastion of a stack whose access window is open (needs az login, and
-# the Virtual Machine Administrator Login role on the resource group).
-# Example: just configure rg-mde-ldo-uks-dev-001 ansible/playbooks/mde-linux.yml
-configure resource_group playbook="ansible/playbooks/mde-linux.yml": deps
-    scripts/bastion-ansible.sh --resource-group '{{ resource_group }}' --playbook '{{ playbook }}'
+# Run a playbook through an open access window; auth is entra or key. Example: just configure rg-mde-ldo-uks-dev-001 key
+configure resource_group auth="entra" playbook="ansible/playbooks/mde-linux.yml": deps
+    scripts/bastion-ansible.sh --resource-group '{{ resource_group }}' --playbook '{{ playbook }}' --auth '{{ auth }}'
 
-# Run the MDE Linux deploy pipeline. Example: just deploy dev true (destroy afterwards)
-deploy workspace="dev" destroy_after="false":
-    gh workflow run mde-linux-deploy.yml -f workspace='{{ workspace }}' -f destroy_after='{{ destroy_after }}'
+# Run the MDE Linux deploy pipeline. Example: just deploy dev key true (key sign-in, destroy afterwards)
+deploy workspace="dev" ssh_auth="entra" destroy_after="false":
+    gh workflow run mde-linux-deploy.yml -f workspace='{{ workspace }}' -f ssh_auth='{{ ssh_auth }}' -f destroy_after='{{ destroy_after }}'
 
 # Close a leftover access window now rather than waiting for the hourly sweep.
 close-access workspace="dev":

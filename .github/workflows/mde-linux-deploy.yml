@@ -4,7 +4,8 @@ name: MDE Linux VM - deploy
 # the libre_devops.mde_linux role, through an Azure Bastion that exists only while Ansible runs:
 #
 #   1. apply with access_enabled=true   the bastion, its public IP, and the runner's VM sign-in role
-#   2. scripts/bastion-ansible.sh       tunnel + short-lived Entra ID SSH certificate + the playbook
+#   2. scripts/bastion-ansible.sh       tunnel + sign-in (Entra ID certificate, or the vaulted SSH
+#                                       key) + the playbook
 #   3. apply with access_enabled=false  ALWAYS (even when 1 or 2 failed): closes the window
 #   4. destroy the stack                instead of 3, when destroy_after is ticked (end-to-end runs)
 #
@@ -16,6 +17,11 @@ on:
         description: Terraform workspace (environment).
         type: string
         default: dev
+      ssh_auth:
+        description: How Ansible signs in - entra (short-lived Entra ID certificate) or key (the admin account's vaulted SSH key).
+        type: choice
+        options: [entra, key]
+        default: entra
       destroy_after:
         description: Destroy the whole stack after the run (an end-to-end test).
         type: boolean
@@ -33,6 +39,7 @@ concurrency:
 env:
   # Matches the stack's naming (rg-mde-<short>-<loc>-<workspace>-001).
   RESOURCE_GROUP: rg-mde-ldo-uks-${{ inputs.workspace }}-001
+  KEY_VAULT: kv-mde-ldo-uks-${{ inputs.workspace }}-001
 
 jobs:
   deploy:
@@ -41,6 +48,19 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      # Every Terraform step passes the runner as key_vault_ip_rules (see the stack's variable), and
+      # the action's key vault dance removes the rule after each step. This also installs
+      # LibreDevOpsHelpers for the bastion-ansible script's key fetch.
+      - name: Find the runner's egress IP
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module LibreDevOpsHelpers -Scope CurrentUser -Force -AllowClobber
+          Import-Module LibreDevOpsHelpers
+          $ip = Get-LdoPublicIpAddress
+          "RUNNER_IP=$ip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TF_VAR_key_vault_ip_rules=[""$ip/32""]" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Open the access window (apply with access_enabled=true)
         uses: libre-devops/terraform-azure@v1
@@ -56,6 +76,10 @@ jobs:
           arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
           firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          add-current-ip-to-key-vault-before-tf-run: true
+          firewall-key-vault-name: ${{ env.KEY_VAULT }}
+          firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
+          key-vault-firewall-soft-fail: true
           terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
 
       - name: Sign the Azure CLI in for the Ansible step
@@ -88,7 +112,8 @@ jobs:
       - name: Configure through the bastion
         env:
           MDE_EXPECTED_ORG_ID: ${{ vars.MDE_EXPECTED_ORG_ID }}
-        run: scripts/bastion-ansible.sh --resource-group "${RESOURCE_GROUP}" --playbook ansible/playbooks/mde-linux.yml
+          SSH_AUTH: ${{ inputs.ssh_auth }}
+        run: scripts/bastion-ansible.sh --resource-group "${RESOURCE_GROUP}" --playbook ansible/playbooks/mde-linux.yml --auth "${SSH_AUTH}"
 
       - name: Remove the onboarding package
         if: always()
@@ -109,6 +134,10 @@ jobs:
           arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
           firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          add-current-ip-to-key-vault-before-tf-run: true
+          firewall-key-vault-name: ${{ env.KEY_VAULT }}
+          firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
+          key-vault-firewall-soft-fail: true
           terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
 
       - name: Destroy the stack (end-to-end runs)
@@ -126,4 +155,8 @@ jobs:
           arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
           firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          add-current-ip-to-key-vault-before-tf-run: true
+          firewall-key-vault-name: ${{ env.KEY_VAULT }}
+          firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
+          key-vault-firewall-soft-fail: true
           terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
