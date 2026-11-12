@@ -1,0 +1,2 @@
+# Trivy waivers: machine-applied (passed with --ignorefile), mirrored in the README so every waiver is auditable. None so far.
+misconfigurations: []

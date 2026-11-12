@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (fmt, validate, tflint, trivy, shellcheck, ansible)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.11"
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform validate (every stack)
+        run: |
+          set -euo pipefail
+          for d in stacks/*/; do
+            echo "== ${d%/} =="
+            terraform -chdir="${d%/}" init -backend=false -input=false >/dev/null
+            terraform -chdir="${d%/}" validate
+          done
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@b480b8fcdaa6f2c577f8e4fa799e89e756bb7c93 # v6.2.2
+
+      - name: TFLint (every stack)
+        run: |
+          set -euo pipefail
+          for d in stacks/*/; do
+            echo "== ${d%/} =="
+            ( cd "${d%/}" && tflint --init && tflint --recursive )
+          done
+
+      - name: Trivy config gate (fail on HIGH or CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_IGNOREFILE: .trivyignore.yaml
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: ShellCheck
+        run: shellcheck scripts/*.sh
+
+      - name: Ansible syntax check
+        run: |
+          set -euo pipefail
+          pipx install ansible-core
+          ansible-galaxy role install -r ansible/requirements.yml -p ansible/roles
+          export ANSIBLE_CONFIG=ansible/ansible.cfg
+          for p in ansible/playbooks/*.yml; do
+            ansible-playbook --syntax-check -i localhost, "$p"
+          done

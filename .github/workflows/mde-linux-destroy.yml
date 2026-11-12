@@ -1,0 +1,47 @@
+name: MDE Linux VM - destroy
+
+# Tears the whole stack down: the VM, its egress and network, and any open access window.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Terraform workspace (environment).
+        type: string
+        default: dev
+      confirm:
+        description: Type the workspace name again to confirm.
+        type: string
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: mde-linux-${{ inputs.workspace }}
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Destroy (${{ inputs.workspace }})
+    if: inputs.confirm == inputs.workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plan-destroy and destroy the stack
+        uses: libre-devops/terraform-azure@v1
+        with:
+          terraform-code-location: stacks
+          terraform-stack-to-run-json: '["mde-linux"]'
+          terraform-workspace: ${{ inputs.workspace }}
+          run-terraform-plan: false
+          run-terraform-plan-destroy: true
+          run-terraform-destroy: true
+          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
+          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'

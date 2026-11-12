@@ -1,0 +1,129 @@
+name: MDE Linux VM - deploy
+
+# Builds or updates the Ubuntu VM in stacks/mde-linux and installs Defender for Endpoint on it with
+# the libre_devops.mde_linux role, through an Azure Bastion that exists only while Ansible runs:
+#
+#   1. apply with access_enabled=true   the bastion, its public IP, and the runner's VM sign-in role
+#   2. scripts/bastion-ansible.sh       tunnel + short-lived Entra ID SSH certificate + the playbook
+#   3. apply with access_enabled=false  ALWAYS (even when 1 or 2 failed): closes the window
+#   4. destroy the stack                instead of 3, when destroy_after is ticked (end-to-end runs)
+#
+# The mde-linux-close-access workflow sweeps up a window a hard-cancelled run could leave open.
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Terraform workspace (environment).
+        type: string
+        default: dev
+      destroy_after:
+        description: Destroy the whole stack after the run (an end-to-end test).
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+# One run per environment at a time; the close-access sweeper shares the group.
+concurrency:
+  group: mde-linux-${{ inputs.workspace }}
+  cancel-in-progress: false
+
+env:
+  # Matches the stack's naming (rg-mde-<short>-<loc>-<workspace>-001).
+  RESOURCE_GROUP: rg-mde-ldo-uks-${{ inputs.workspace }}-001
+
+jobs:
+  deploy:
+    name: Deploy and configure (${{ inputs.workspace }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open the access window (apply with access_enabled=true)
+        uses: libre-devops/terraform-azure@v1
+        with:
+          terraform-code-location: stacks
+          terraform-stack-to-run-json: '["mde-linux"]'
+          terraform-workspace: ${{ inputs.workspace }}
+          run-terraform-plan: true
+          run-terraform-apply: true
+          terraform-plan-extra-args-json: '["-var=access_enabled=true"]'
+          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
+          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
+
+      - name: Sign the Azure CLI in for the Ansible step
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Ansible and the role
+        run: |
+          set -euo pipefail
+          pipx install ansible-core
+          ansible-galaxy role install -r ansible/requirements.yml -p ansible/roles
+
+      # Optional: without the secret the agent installs but is not onboarded.
+      - name: Write the onboarding package to a private temporary file
+        env:
+          MDE_ONBOARDING_JSON: ${{ secrets.MDE_ONBOARDING_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "${MDE_ONBOARDING_JSON}" ]; then
+            umask 077
+            printf '%s' "${MDE_ONBOARDING_JSON}" >"${RUNNER_TEMP}/mdatp_onboard.json"
+            echo "MDE_ONBOARDING_FILE=${RUNNER_TEMP}/mdatp_onboard.json" >>"${GITHUB_ENV}"
+          else
+            echo "::notice::MDE_ONBOARDING_JSON is not set: installing the agent without onboarding."
+          fi
+
+      - name: Configure through the bastion
+        env:
+          MDE_EXPECTED_ORG_ID: ${{ vars.MDE_EXPECTED_ORG_ID }}
+        run: scripts/bastion-ansible.sh --resource-group "${RESOURCE_GROUP}" --playbook ansible/playbooks/mde-linux.yml
+
+      - name: Remove the onboarding package
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/mdatp_onboard.json"
+
+      - name: Close the access window (apply with access_enabled=false)
+        if: always() && !inputs.destroy_after
+        uses: libre-devops/terraform-azure@v1
+        with:
+          terraform-code-location: stacks
+          terraform-stack-to-run-json: '["mde-linux"]'
+          terraform-workspace: ${{ inputs.workspace }}
+          run-terraform-plan: true
+          run-terraform-apply: true
+          terraform-plan-extra-args-json: '["-var=access_enabled=false"]'
+          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
+          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
+
+      - name: Destroy the stack (end-to-end runs)
+        if: always() && inputs.destroy_after
+        uses: libre-devops/terraform-azure@v1
+        with:
+          terraform-code-location: stacks
+          terraform-stack-to-run-json: '["mde-linux"]'
+          terraform-workspace: ${{ inputs.workspace }}
+          run-terraform-plan: false
+          run-terraform-plan-destroy: true
+          run-terraform-destroy: true
+          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
+          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'

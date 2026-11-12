@@ -1,0 +1,72 @@
+name: MDE Linux VM - close access window
+
+# The safety net for "only alive as long as needed": the deploy workflow always closes its access
+# window, but a run cancelled hard enough (a runner lost mid-job) never reaches that step. Every hour
+# this checks for a bastion in the stack's resource group and, only if one is there, applies the
+# stack with access_enabled=false. It shares the deploy workflow's concurrency group, so it never
+# closes a window under a run that is using it.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Terraform workspace (environment).
+        type: string
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: mde-linux-${{ inputs.workspace || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  WORKSPACE: ${{ inputs.workspace || 'dev' }}
+  RESOURCE_GROUP: rg-mde-ldo-uks-${{ inputs.workspace || 'dev' }}-001
+
+jobs:
+  close:
+    name: Close a leftover access window (${{ inputs.workspace || 'dev' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Look for an open window
+        id: check
+        run: |
+          set -euo pipefail
+          az extension add --name bastion --only-show-errors >/dev/null 2>&1 || true
+          if [ "$(az group exists --name "${RESOURCE_GROUP}")" != "true" ]; then
+            echo "open=false" >>"${GITHUB_OUTPUT}"; echo "No stack in ${RESOURCE_GROUP}."; exit 0
+          fi
+          count="$(az network bastion list --resource-group "${RESOURCE_GROUP}" --query 'length(@)' --output tsv --only-show-errors)"
+          echo "open=$([ "${count}" -gt 0 ] && echo true || echo false)" >>"${GITHUB_OUTPUT}"
+          echo "Bastions in ${RESOURCE_GROUP}: ${count}"
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.open == 'true'
+
+      - name: Close the access window (apply with access_enabled=false)
+        if: steps.check.outputs.open == 'true'
+        uses: libre-devops/terraform-azure@v1
+        with:
+          terraform-code-location: stacks
+          terraform-stack-to-run-json: '["mde-linux"]'
+          terraform-workspace: ${{ env.WORKSPACE }}
+          run-terraform-plan: true
+          run-terraform-apply: true
+          terraform-plan-extra-args-json: '["-var=access_enabled=false"]'
+          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
+          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
+          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'

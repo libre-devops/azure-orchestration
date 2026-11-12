@@ -1,0 +1,32 @@
+# Terraform working files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfplan
+*.plan
+tfplan*
+
+# Local-only overrides and sensitive files (the .example is committed)
+backend_override.tf
+override.tf
+*_override.tf
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Ansible: roles and collections installed from requirements.yml, retry files
+ansible/roles/
+ansible/collections/
+*.retry
+
+# Never commit an MDE onboarding or offboarding package
+**/mdatp_onboard.json
+**/mdatp_offboard.json
+
+# OS and editor
+.DS_Store
+.idea/
+.vscode/
+*.log
