@@ -1,15 +1,18 @@
 name: MDE Linux VM - deploy
 
-# Builds or updates the Ubuntu VM in stacks/mde-linux and installs Defender for Endpoint on it with
-# the libre_devops.mde_linux role, through an Azure Bastion that exists only while Ansible runs:
+# Builds or updates the Ubuntu VM in stacks/mde-linux and installs Defender for Endpoint on it, in
+# ONE apply with configure=true:
 #
-#   1. apply with access_enabled=true   the bastion, its public IP, and the runner's VM sign-in role
-#   2. scripts/bastion-ansible.sh       tunnel + sign-in (Entra ID certificate, or the vaulted SSH
-#                                       key) + the playbook
-#   3. apply with access_enabled=false  ALWAYS (even when 1 or 2 failed): closes the window
-#   4. destroy the stack                instead of 3, when destroy_after is ticked (end-to-end runs)
+#   open    the bastion-session module creates an Azure Bastion and the runner's sign-in (an Entra
+#           ID certificate and role, or the vaulted SSH key)
+#   run     terraform-ansible-role runs libre_devops.python, then libre_devops.mde_linux, through it
+#   close   the module deletes the bastion, its public IP and the role once both have finished
 #
-# The mde-linux-close-access workflow sweeps up a window a hard-cancelled run could leave open.
+# Then, ALWAYS, the session's close script: a failed role run skips the module's close step, so this
+# deletes the bastion straight away (it does nothing when the apply closed it). Last, when
+# destroy_after is ticked, the stack is destroyed (end-to-end runs).
+#
+# The mde-linux-close-access workflow sweeps up a bastion a hard-cancelled run could leave behind.
 on:
   workflow_dispatch:
     inputs:
@@ -40,6 +43,12 @@ env:
   # Matches the stack's naming (rg-mde-<short>-<loc>-<workspace>-001).
   RESOURCE_GROUP: rg-mde-ldo-uks-${{ inputs.workspace }}-001
   KEY_VAULT: kv-mde-ldo-uks-${{ inputs.workspace }}-001
+  # Where the bastion-session module keeps its scripts and its working directory (module call
+  # bastion_session, session name mde-linux), for the always() close step.
+  SESSION_CLOSE: stacks/mde-linux/.terraform/modules/bastion_session/scripts/close.sh
+  SESSION_DIR: stacks/mde-linux/.terraform/bastion-session/mde-linux
+  # Optional: the organisation the role checks the device onboarded to.
+  TF_VAR_mde_expected_org_id: ${{ vars.MDE_EXPECTED_ORG_ID }}
 
 jobs:
   deploy:
@@ -51,7 +60,7 @@ jobs:
 
       # Every Terraform step passes the runner as key_vault_ip_rules (see the stack's variable), and
       # the action's key vault dance removes the rule after each step. This also installs
-      # LibreDevOpsHelpers for the bastion-ansible script's key fetch.
+      # LibreDevOpsHelpers for the bastion session's key fetch.
       - name: Find the runner's egress IP
         shell: pwsh
         run: |
@@ -62,38 +71,9 @@ jobs:
           "RUNNER_IP=$ip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "TF_VAR_key_vault_ip_rules=[""$ip/32""]" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Open the access window (apply with access_enabled=true)
-        uses: libre-devops/terraform-azure@v1
-        with:
-          terraform-code-location: stacks
-          terraform-stack-to-run-json: '["mde-linux"]'
-          terraform-workspace: ${{ inputs.workspace }}
-          run-terraform-plan: true
-          run-terraform-apply: true
-          terraform-plan-extra-args-json: '["-var=access_enabled=true"]'
-          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
-          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
-          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
-          add-current-ip-to-key-vault-before-tf-run: true
-          firewall-key-vault-name: ${{ env.KEY_VAULT }}
-          firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
-          key-vault-firewall-soft-fail: true
-          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
-
-      - name: Sign the Azure CLI in for the Ansible step
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install Ansible and the role
-        run: |
-          set -euo pipefail
-          pipx install ansible-core
-          ansible-galaxy role install -r ansible/requirements.yml -p ansible/roles
+      # terraform-ansible-role runs ansible-playbook on the runner, and installs the roles itself.
+      - name: Install Ansible
+        run: pipx install ansible-core
 
       # Optional: without the secret the agent installs but is not onboarded.
       - name: Write the onboarding package to a private temporary file
@@ -104,23 +84,12 @@ jobs:
           if [ -n "${MDE_ONBOARDING_JSON}" ]; then
             umask 077
             printf '%s' "${MDE_ONBOARDING_JSON}" >"${RUNNER_TEMP}/mdatp_onboard.json"
-            echo "MDE_ONBOARDING_FILE=${RUNNER_TEMP}/mdatp_onboard.json" >>"${GITHUB_ENV}"
+            echo "TF_VAR_mde_onboarding_file=${RUNNER_TEMP}/mdatp_onboard.json" >>"${GITHUB_ENV}"
           else
             echo "::notice::MDE_ONBOARDING_JSON is not set: installing the agent without onboarding."
           fi
 
-      - name: Configure through the bastion
-        env:
-          MDE_EXPECTED_ORG_ID: ${{ vars.MDE_EXPECTED_ORG_ID }}
-          SSH_AUTH: ${{ inputs.ssh_auth }}
-        run: scripts/bastion-ansible.sh --resource-group "${RESOURCE_GROUP}" --playbook ansible/playbooks/mde-linux.yml --auth "${SSH_AUTH}"
-
-      - name: Remove the onboarding package
-        if: always()
-        run: rm -f "${RUNNER_TEMP}/mdatp_onboard.json"
-
-      - name: Close the access window (apply with access_enabled=false)
-        if: always() && !inputs.destroy_after
+      - name: Apply and configure (configure=true)
         uses: libre-devops/terraform-azure@v1
         with:
           terraform-code-location: stacks
@@ -128,7 +97,7 @@ jobs:
           terraform-workspace: ${{ inputs.workspace }}
           run-terraform-plan: true
           run-terraform-apply: true
-          terraform-plan-extra-args-json: '["-var=access_enabled=false"]'
+          terraform-plan-extra-args-json: '["-var=configure=true","-var=ssh_auth=${{ inputs.ssh_auth }}"]'
           arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
           arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
           arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
@@ -139,6 +108,31 @@ jobs:
           firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
           key-vault-firewall-soft-fail: true
           terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
+
+      - name: Remove the onboarding package
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/mdatp_onboard.json"
+
+      # A fresh sign-in, in case the apply ran long enough for the action's to lapse.
+      - name: Sign the Azure CLI in for the close step
+        if: always()
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Reads the session.json the open step left, so it needs no Terraform state; does nothing when
+      # the apply closed the session itself or never got as far as opening one.
+      - name: Close the bastion session (always, even when the apply failed)
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -x "${SESSION_CLOSE}" ]; then
+            "${SESSION_CLOSE}" "${SESSION_DIR}"
+          else
+            echo "Terraform never downloaded the bastion-session module, so no session was opened."
+          fi
 
       - name: Destroy the stack (end-to-end runs)
         if: always() && inputs.destroy_after

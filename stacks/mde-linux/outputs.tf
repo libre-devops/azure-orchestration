@@ -1,11 +1,16 @@
-output "access_enabled" {
-  description = "Whether the access window (bastion, its public IP and the runner's sign-in role) is open."
-  value       = var.access_enabled
+output "bastion_name" {
+  description = "The name the bastion session's bastion has while an apply with configure = true runs."
+  value       = module.bastion_session.bastion_name
 }
 
-output "bastion_name" {
-  description = "The bastion's name while the access window is open, otherwise null."
-  value       = var.access_enabled ? local.bas_name : null
+output "bastion_session_working_directory" {
+  description = "The bastion session's working directory: scripts/close.sh <this> closes a session a failed apply left open."
+  value       = module.bastion_session.working_directory
+}
+
+output "configured" {
+  description = "Whether this apply configured the VM through a bastion session (the configure input)."
+  value       = var.configure
 }
 
 output "key_vault_name" {
@@ -14,7 +19,7 @@ output "key_vault_name" {
 }
 
 output "resource_group_name" {
-  description = "The resource group holding the stack, which the bastion-ansible script targets."
+  description = "The resource group holding the stack."
   value       = local.rg_name
 }
 

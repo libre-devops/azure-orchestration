@@ -35,17 +35,45 @@ variable "short" {
   default     = "ldo"
 }
 
-variable "access_enabled" {
+variable "configure" {
   description = <<DESC
-Open the access window: a Standard Azure Bastion with native client tunnelling, its public IP, and
-the Virtual Machine Administrator Login role for the identity running Terraform (the CI service
-principal in the pipeline). The deploy workflow applies with this true just long enough for Ansible
-to run through the bastion, then always applies again with it false, so the billable bastion and the
-sign-in grant exist only while they are in use. false (the default) is the steady state.
+Configure the VM in this apply. When true, the bastion-session module creates a Standard Azure
+Bastion with native client tunnelling (and, for ssh_auth = "entra", grants the identity running
+Terraform the Virtual Machine Administrator Login role on the VM), libre_devops.python and then
+libre_devops.mde_linux run through it, and the bastion and the role are removed once they finish:
+one apply, nothing billable left behind. false (the default) is an ordinary infrastructure apply.
 DESC
 
   type    = bool
   default = false
+}
+
+variable "mde_expected_org_id" {
+  description = "Optional: the Defender for Endpoint organisation ID the role checks the device onboarded to. The deploy workflow passes the MDE_EXPECTED_ORG_ID variable."
+  type        = string
+  default     = ""
+}
+
+variable "mde_onboarding_file" {
+  description = "Optional: path, on the machine running Terraform, to mdatp_onboard.json from the Defender portal. Empty installs the agent without onboarding. The deploy workflow writes the MDE_ONBOARDING_JSON secret to a 0600 temporary file and passes its path."
+  type        = string
+  default     = ""
+}
+
+variable "ssh_auth" {
+  description = <<DESC
+How Ansible signs in to the VM through the bastion: entra (a short-lived Entra ID OpenSSH
+certificate for the identity running Terraform, with the sign-in role granted for the session) or
+key (the admin account's SSH key, fetched from the key vault for the session).
+DESC
+
+  type    = string
+  default = "entra"
+
+  validation {
+    condition     = contains(["entra", "key"], var.ssh_auth)
+    error_message = "ssh_auth must be entra or key."
+  }
 }
 
 variable "vm_size" {

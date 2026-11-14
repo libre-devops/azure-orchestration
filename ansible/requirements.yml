@@ -1,4 +1,0 @@
----
-roles:
-  - name: libre_devops.mde_linux
-    version: 1.0.0

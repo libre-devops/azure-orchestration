@@ -16,9 +16,7 @@ override.tf
 *.tfvars.json
 !*.tfvars.example
 
-# Ansible: roles and collections installed from requirements.yml, retry files
-ansible/roles/
-ansible/collections/
+# Ansible retry files
 *.retry
 
 # Never commit an MDE onboarding or offboarding package

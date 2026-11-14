@@ -1,10 +1,12 @@
-name: MDE Linux VM - close access window
+name: MDE Linux VM - close a leftover bastion session
 
-# The safety net for "only alive as long as needed": the deploy workflow always closes its access
-# window, but a run cancelled hard enough (a runner lost mid-job) never reaches that step. Every hour
-# this checks for a bastion in the stack's resource group and, only if one is there, applies the
-# stack with access_enabled=false. It shares the deploy workflow's concurrency group, so it never
-# closes a window under a run that is using it.
+# The safety net for "only alive as long as needed". The deploy workflow's apply closes its bastion
+# session, and its always() step closes one a failed apply left open, but a run cancelled hard enough
+# (a runner lost mid-job) reaches neither. Every hour this looks in the stack's resource group for
+# anything the session creates (a bastion or public IP tagged BastionSession=mde-linux, or a sign-in
+# role assignment described BastionSession=mde-linux) and, only if it finds something, runs the
+# session's close script, which deletes just those. It needs no Terraform state, and it shares the
+# deploy workflow's concurrency group, so it never closes a session under a run that is using it.
 on:
   schedule:
     - cron: "17 * * * *"
@@ -24,13 +26,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  WORKSPACE: ${{ inputs.workspace || 'dev' }}
+  # Matches the stack's naming (rg-mde-<short>-<loc>-<workspace>-001) and its bastion_session call.
   RESOURCE_GROUP: rg-mde-ldo-uks-${{ inputs.workspace || 'dev' }}-001
-  KEY_VAULT: kv-mde-ldo-uks-${{ inputs.workspace || 'dev' }}-001
+  BASTION: bas-mde-ldo-uks-${{ inputs.workspace || 'dev' }}-001
+  SESSION_NAME: mde-linux
 
 jobs:
   close:
-    name: Close a leftover access window (${{ inputs.workspace || 'dev' }})
+    name: Close a leftover bastion session (${{ inputs.workspace || 'dev' }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -40,52 +43,41 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Look for an open window
+      - name: Look for a leftover session
         id: check
         run: |
           set -euo pipefail
-          az extension add --name bastion --only-show-errors >/dev/null 2>&1 || true
           if [ "$(az group exists --name "${RESOURCE_GROUP}")" != "true" ]; then
             echo "open=false" >>"${GITHUB_OUTPUT}"; echo "No stack in ${RESOURCE_GROUP}."; exit 0
           fi
-          count="$(az network bastion list --resource-group "${RESOURCE_GROUP}" --query 'length(@)' --output tsv --only-show-errors)"
-          echo "open=$([ "${count}" -gt 0 ] && echo true || echo false)" >>"${GITHUB_OUTPUT}"
-          echo "Bastions in ${RESOURCE_GROUP}: ${count}"
+          resources="$(az resource list --resource-group "${RESOURCE_GROUP}" --tag "BastionSession=${SESSION_NAME}" \
+            --query 'length(@)' --output tsv --only-show-errors)"
+          roles="$(az role assignment list --all --fill-principal-name false --only-show-errors --output tsv \
+            --query "length([?description=='BastionSession=${SESSION_NAME}' && contains(scope, '/resourceGroups/${RESOURCE_GROUP}/')])")"
+          echo "Session resources in ${RESOURCE_GROUP}: ${resources}; session role assignments: ${roles}"
+          echo "open=$([ "${resources}" -gt 0 ] || [ "${roles}" -gt 0 ] && echo true || echo false)" >>"${GITHUB_OUTPUT}"
 
       - uses: actions/checkout@v4
         if: steps.check.outputs.open == 'true'
 
-      # Every Terraform step passes the runner as key_vault_ip_rules (see the stack's variable), and
-      # the action's key vault dance removes the rule after each step. This also installs
-      # LibreDevOpsHelpers for the bastion-ansible script's key fetch.
-      - name: Find the runner's egress IP
+      - uses: hashicorp/setup-terraform@v3
         if: steps.check.outputs.open == 'true'
-        shell: pwsh
-        run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module LibreDevOpsHelpers -Scope CurrentUser -Force -AllowClobber
-          Import-Module LibreDevOpsHelpers
-          $ip = Get-LdoPublicIpAddress
-          "RUNNER_IP=$ip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "TF_VAR_key_vault_ip_rules=[""$ip/32""]" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      - name: Close the access window (apply with access_enabled=false)
-        if: steps.check.outputs.open == 'true'
-        uses: libre-devops/terraform-azure@v1
         with:
-          terraform-code-location: stacks
-          terraform-stack-to-run-json: '["mde-linux"]'
-          terraform-workspace: ${{ env.WORKSPACE }}
-          run-terraform-plan: true
-          run-terraform-apply: true
-          terraform-plan-extra-args-json: '["-var=access_enabled=false"]'
-          arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
-          arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          firewall-storage-account-name: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
-          firewall-storage-resource-group: ${{ secrets.TFSTATE_RESOURCE_GROUP }}
-          add-current-ip-to-key-vault-before-tf-run: true
-          firewall-key-vault-name: ${{ env.KEY_VAULT }}
-          firewall-key-vault-resource-group: ${{ env.RESOURCE_GROUP }}
-          key-vault-firewall-soft-fail: true
-          terraform-init-extra-args-json: '["-reconfigure","-upgrade","-backend-config=resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP }}","-backend-config=storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT }}","-backend-config=container_name=${{ secrets.TFSTATE_BLOB_CONTAINER }}"]'
+          terraform_version: "~> 1.11"
+          terraform_wrapper: false
+
+      # terraform get downloads the stack's pinned bastion-session module (no providers, backend or
+      # state), so the close script is the same version the deploy ran. The session's settings are
+      # rebuilt from the stack's names and the VMs in the resource group.
+      - name: Close the session
+        if: steps.check.outputs.open == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir=stacks/mde-linux get >/dev/null
+          targets="$(az vm list --resource-group "${RESOURCE_GROUP}" --query '[].{name: name, id: id}' \
+            --output json --only-show-errors | jq 'map({(.name): {id: .id}}) | add // {}')"
+          export BASTION_SESSION="$(jq -n --arg name "${SESSION_NAME}" --arg bastion "${BASTION}" \
+            --arg rg "${RESOURCE_GROUP}" --argjson targets "${targets}" \
+            '{name: $name, auth: "entra", bastion: {name: $bastion, resource_group_name: $rg},
+              login_role: {enabled: true}, targets: $targets}')"
+          stacks/mde-linux/.terraform/modules/bastion_session/scripts/close.sh

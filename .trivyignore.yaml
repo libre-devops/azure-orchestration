@@ -1,2 +1,10 @@
-# Trivy waivers: machine-applied (passed with --ignorefile), mirrored in the README so every waiver is auditable. None so far.
-misconfigurations: []
+# Trivy waivers: machine-applied (passed with --ignorefile), mirrored in the README so every waiver is auditable.
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - "**/.terraform/modules/*/tests/e2e/image/Containerfile"
+    statement: >-
+      Not this repo's code: terraform init downloads terraform-ansible-role into the stacks'
+      .terraform/modules, which brings its end-to-end test fixture along. Those throwaway SSH hosts
+      run systemd as PID 1, which must be root, and terraform-ansible-role waives the same finding
+      for the same file.

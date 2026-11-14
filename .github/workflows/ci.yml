@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   validate:
-    name: Validate (fmt, validate, tflint, trivy, shellcheck, ansible)
+    name: Validate (fmt, validate, tflint, trivy)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,16 +52,3 @@ jobs:
           scan-ref: .
           severity: HIGH,CRITICAL
           exit-code: "1"
-
-      - name: ShellCheck
-        run: shellcheck scripts/*.sh
-
-      - name: Ansible syntax check
-        run: |
-          set -euo pipefail
-          pipx install ansible-core
-          ansible-galaxy role install -r ansible/requirements.yml -p ansible/roles
-          export ANSIBLE_CONFIG=ansible/ansible.cfg
-          for p in ansible/playbooks/*.yml; do
-            ansible-playbook --syntax-check -i localhost, "$p"
-          done

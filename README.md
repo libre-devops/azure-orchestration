@@ -10,7 +10,9 @@
 # Azure Orchestration
 
 End-to-end builds that put the Libre DevOps Terraform modules, the `terraform-azure` action and the
-Ansible roles together, from a GitHub-hosted runner, against VMs nobody can reach from outside.
+Ansible roles together, from a GitHub-hosted runner, against VMs nobody can reach from outside: one
+Terraform apply builds the VMs and configures them through an Azure Bastion that exists only for
+that apply.
 
 [![CI](https://github.com/libre-devops/azure-orchestration/actions/workflows/ci.yml/badge.svg)](https://github.com/libre-devops/azure-orchestration/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/libre-devops/azure-orchestration)](./LICENSE)
@@ -19,53 +21,60 @@ Ansible roles together, from a GitHub-hosted runner, against VMs nobody can reac
 
 ## MDE Linux VM
 
-[`stacks/mde-linux`](./stacks/mde-linux) builds an Ubuntu 24.04 VM and
-[`ansible/playbooks/mde-linux.yml`](./ansible/playbooks/mde-linux.yml) installs Microsoft Defender for
-Endpoint on it with [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux).
-The VM has no public IP and the runner has no network path to it (no VPN, firewall or private
-endpoint).
+[`stacks/mde-linux`](./stacks/mde-linux) builds an Ubuntu 24.04 VM and installs Microsoft Defender
+for Endpoint on it with [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux),
+run from Terraform by [terraform-ansible-role](https://github.com/libre-devops/terraform-ansible-role)
+after [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python). The VM has no
+public IP and the runner has no network path to it (no VPN, firewall or private endpoint).
 
 ### How the runner reaches the VM
 
-Ansible runs on the GitHub-hosted runner and connects through an **access window** that is open only
-while it runs:
+Ansible runs on the GitHub-hosted runner and connects through a **bastion session** from the
+[bastion-session](https://github.com/libre-devops/terraform-azurerm-bastion-session) module, which
+exists only during an apply with `configure = true`. One apply does all of it:
 
 | Step | What happens |
 |---|---|
-| 1. Open | `terraform apply -var=access_enabled=true` adds a Standard Azure Bastion with native client tunnelling, its public IP, and the Virtual Machine Administrator Login role for the identity running Terraform (the CI service principal). |
-| 2. Configure | [`scripts/bastion-ansible.sh`](./scripts/bastion-ansible.sh) finds the bastion and the VMs tagged `AnsibleGroups`, opens one `az network bastion tunnel` per VM on its own localhost port, signs in (see below), and runs the playbook against `127.0.0.1:<port>`. |
-| 3. Close | `terraform apply -var=access_enabled=false` runs **always**, even when step 1 or 2 failed, and removes the bastion, its public IP and the sign-in role. |
-| Sweep | An hourly workflow closes any window a hard-cancelled run left open (it only runs Terraform when a bastion is actually there, and never under a run that is using it). |
+| Open | The module grants the identity running Terraform (the CI service principal) the Virtual Machine Administrator Login role on the VM, or fetches the vaulted SSH key, creates a Standard Azure Bastion with native client tunnelling and its public IP with `az`, and waits until SSH signs in through it. |
+| Configure | Two terraform-ansible-role calls run through the session, chained with `depends_on`: `libre_devops.python`, then `libre_devops.mde_linux` on the `mde_linux` hosts. Their SSH connections go through the session's `ProxyCommand` and one `az network bastion tunnel` per VM. |
+| Close | Once both calls have finished, the module deletes the bastion, its public IP and the role assignment, and removes the certificate or key. |
+| Always | A failed role run stops the apply before the close step, so the deploy workflow then always runs the session's close script, which deletes whatever the apply left (and does nothing when the apply closed the session itself). |
+| Sweep | An hourly workflow closes a session a hard-cancelled run left behind. It runs the same close script, only when it finds something the session created, and never under a run that is using it. |
 
-Everything billable or privileged in the window lives only as long as the run: the bastion and its
-public IP (Standard bastions bill by the hour, unlike the free Developer SKU, which cannot tunnel),
-the sign-in role, the runner's key vault firewall rule, the tunnels (closed when the script exits),
-and the certificate or fetched key, inventory and known_hosts (in a temporary directory deleted when
-the script exits, pass or fail). What stays is what
-the VM needs to do its job: the VM, its NAT gateway (Defender for Endpoint talks to its cloud
-continuously, and the network module's subnets have no implicit outbound access), the network and the
-free `AzureBastionSubnet`.
+The bastion is created and deleted with `az` from inside the apply rather than as a Terraform
+resource, because Terraform cannot create and delete the same resource in one apply. That is what
+the old pattern of two applies (open the window, run Ansible, apply again to close it) worked around,
+and what the module replaces.
+
+Everything billable or privileged lives only as long as the apply: the bastion and its public IP
+(Standard bastions bill by the hour, unlike the free Developer SKU, which cannot tunnel), the
+sign-in role, the runner's key vault firewall rule, the tunnels, and the certificate or fetched key.
+What stays is what the VM needs to do its job: the VM, its NAT gateway (Defender for Endpoint talks
+to its cloud continuously, and the network module's subnets have no implicit outbound access), the
+network and the free `AzureBastionSubnet`. An apply with `configure = false` (the stack's default)
+is an ordinary infrastructure apply and creates none of it.
 
 ### Signing in: `entra` or `key`
 
-The deploy workflow's `ssh_auth` input (the script's `--auth`) picks one; both work against the same
-VM.
+The deploy workflow's `ssh_auth` input (the stack's `ssh_auth` variable, passed to the session's
+`auth`) picks one; both work against the same VM.
 
 - **`entra` (default)**: [Entra ID SSH](https://learn.microsoft.com/entra/identity/devices/howto-vm-sign-in-azure-ad-linux)
   through the [vm-entra-login](https://github.com/libre-devops/terraform-azurerm-vm-entra-login)
   module. The runner's identity gets an OpenSSH certificate Entra ID issues on demand (`az ssh
-  config`), and the window's Virtual Machine Administrator Login role gives it the passwordless
-  `sudo` the role's `become` needs. No key exists to leak.
+  cert`), and the session's Virtual Machine Administrator Login role gives it the passwordless
+  `sudo` the roles' `become` needs. No key exists to leak.
 - **`key`**: the admin account's own key pair, which the
   [ssh-key](https://github.com/libre-devops/terraform-azurerm-ssh-key) module generates with an
   *ephemeral* `tls_private_key`, so the private key is never in the plan or state; both halves go
-  into the stack's key vault write-only, and the public half becomes the VM's admin key. The VM's
-  `AnsibleUser` and `AnsibleSshKeySecret` tags tell the script who to sign in as and where the key
-  is. `az network bastion tunnel` cannot read Key Vault itself, so the script fetches the key into a
-  `0600` file in its temporary directory, opening the vault's firewall to the runner only for the
-  fetch (LibreDevOpsHelpers' `Add-` and `Remove-LdoKeyVaultCurrentIpRule`, the same dance the
-  terraform-azure action does), and deletes it on exit. It is a standing credential, so it doubles
-  as the break-glass key, rotated by bumping the module's `value_wo_version`.
+  into the stack's key vault write-only, and the public half becomes the VM's admin key. The
+  session's target gives the user (`azureuser`) and the key's secret ID. `az network bastion tunnel`
+  cannot read Key Vault itself, so the session fetches the key into a `0600` file in its working
+  directory and deletes it when it closes. In the pipeline the runner is already on the vault's
+  firewall for the apply (see below); anywhere else the session opens the firewall to the machine
+  only for the fetch (LibreDevOpsHelpers' `Add-` and `Remove-LdoKeyVaultCurrentIpRule`). It is a
+  standing credential, so it doubles as the break-glass key, rotated by bumping the module's
+  `value_wo_version`.
 
 The key vault is deny-by-default with nothing allow-listed between runs. Every Terraform step goes
 through the terraform-azure action's key vault dance and also passes the runner's IP as
@@ -79,16 +88,18 @@ design).
 
 ### What a run costs in time
 
-Measured on a live run in UK South (Standard bastion, one VM):
+Measured on live runs of the bastion-session module's examples in UK South (Standard bastion, one
+Ubuntu VM), which use the same pieces as this stack:
 
 | Phase | Time | Notes |
 |---|---|---|
-| Open the window (first run, whole stack) | 12m 16s | Almost all of it the bastion (11m 25s); the VM took 48s. |
-| Ansible through the tunnel, first run | 56s | Tunnel ready in about a second; repository, keys, `mdatp` installed and started. |
-| Ansible through the tunnel, rerun | 17s | `changed=0`. |
-| Close the window | 6m 59s | The bastion's deletion (5m 49s); the sign-in role goes in 2s. |
+| Open the session | 11 to 13 minutes | Almost all of it the bastion's creation; the sign-in role (or key fetch), the certificate and the first SSH sign-in take seconds. |
+| `libre_devops.python` through the session | 8 to 9s | Nothing to change on Ubuntu. |
+| `libre_devops.mde_linux` through the same session | 1m 4s | First run: repository, keys, `mdatp` installed and started. |
+| Close the session | About 8 minutes | The bastion's deletion; the sign-in role goes first, in seconds. |
 
-So the bastion bills for roughly 20 minutes per run, and is gone the rest of the time.
+So the bastion bills for roughly 20 minutes per run, inside one apply, and is gone the rest of the
+time. An apply with `configure = false` takes as long as the infrastructure changes and no more.
 
 ### Modules and tools
 
@@ -98,45 +109,55 @@ So the bastion bills for roughly 20 minutes per run, and is gone the rest of the
 | tags, rg, network, nsg, public-ip, nat-gateway modules | The resource group, a VM subnet admitting SSH from the bastion subnet only, the `AzureBastionSubnet`, and NAT egress. |
 | [linux-vm](https://github.com/libre-devops/terraform-azurerm-linux-vm) | The hardened Ubuntu VM (Trusted Launch, system-assigned identity). |
 | [vm-entra-login](https://github.com/libre-devops/terraform-azurerm-vm-entra-login) | Entra ID SSH on the VM (sourced from its GitHub tag until it is published on the Terraform Registry). |
-| [bastion](https://github.com/libre-devops/terraform-azurerm-bastion), [role-assignment](https://github.com/libre-devops/terraform-azurerm-role-assignment) | The access window. |
+| [bastion-session](https://github.com/libre-devops/terraform-azurerm-bastion-session) | The bastion, its public IP and the sign-in role for the length of the apply, and the SSH connections through them (sourced from its GitHub commit until it is tagged and published on the Terraform Registry). |
+| [terraform-ansible-role](https://github.com/libre-devops/terraform-ansible-role) | Runs each Ansible role from Terraform, through the session (sourced from its GitHub tag). |
 | [keyvault](https://github.com/libre-devops/terraform-azurerm-keyvault), [ssh-key](https://github.com/libre-devops/terraform-azurerm-ssh-key) | The deny-by-default vault and the ephemerally generated admin key pair. |
-| [LibreDevOpsHelpers](https://www.powershellgallery.com/packages/LibreDevOpsHelpers) | The runner's egress IP and the key vault firewall dance for the `key` sign-in. |
+| [LibreDevOpsHelpers](https://www.powershellgallery.com/packages/LibreDevOpsHelpers) | The runner's egress IP, and the key vault firewall dance for the `key` sign-in outside the pipeline. |
+| [`libre_devops.python`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/python/documentation/) | Python on the VM, so the next role can gather facts on any image. |
 | [`libre_devops.mde_linux`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/mde_linux/documentation/) | Defender for Endpoint: repository, package, onboarding and health checks. |
 
 ### Running it
 
 **Deploy** with the `MDE Linux VM - deploy` workflow (`just deploy dev`, or `just deploy dev key` for the
 vaulted key): pick the workspace and the sign-in, and tick
-`destroy_after` for an end-to-end test that tears everything down at the end instead of closing the
-window. **Destroy** with `MDE Linux VM - destroy` (type the workspace name to confirm).
+`destroy_after` for an end-to-end test that tears everything down at the end. **Destroy** with
+`MDE Linux VM - destroy` (type the workspace name to confirm).
 
 The pipelines use the org's existing `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID`
 variables and `TFSTATE_*` secrets. Onboarding is optional:
 
 | Name | Kind | Purpose |
 |---|---|---|
-| `MDE_ONBOARDING_JSON` | Secret | The content of `mdatp_onboard.json` from the Defender portal (Settings > Endpoints > Onboarding > Linux Server > "Your preferred Linux configuration management tool"). The workflow writes it to a `0600` temporary file for the role and deletes it afterwards. Without it, the agent installs but is not onboarded. |
-| `MDE_EXPECTED_ORG_ID` | Variable | Optional: the organisation ID the role checks the device onboarded to. |
+| `MDE_ONBOARDING_JSON` | Secret | The content of `mdatp_onboard.json` from the Defender portal (Settings > Endpoints > Onboarding > Linux Server > "Your preferred Linux configuration management tool"). The workflow writes it to a `0600` temporary file, passes its path as the stack's `mde_onboarding_file`, and deletes it afterwards. Without it, the agent installs but is not onboarded. |
+| `MDE_EXPECTED_ORG_ID` | Variable | Optional: the organisation ID the role checks the device onboarded to (the stack's `mde_expected_org_id`). |
 
-To run the Ansible step yourself against a stack whose window is open: `az login`, then
-`just configure rg-mde-ldo-uks-dev-001` (Entra ID sign-in; your identity needs the Virtual Machine
-Administrator Login role on the resource group, which the window grants to whoever runs Terraform),
-or `just configure rg-mde-ldo-uks-dev-001 key` for the vaulted key.
+To configure from your own machine, `az login` and apply the stack with `-var=configure=true` (your
+identity needs the rights in "Requirements" below). If that apply fails partway, `just close` deletes
+the bastion it left; the next apply would close it too, but the bastion bills by the hour until then.
 
 ### Requirements on the runner
 
-The Azure CLI with the `bastion` and `ssh` extensions (the script adds them), `ansible-core`, bash,
-and for `--auth key` PowerShell 7 with LibreDevOpsHelpers (the script installs the module from
-PSGallery if it is missing). GitHub's `ubuntu-latest` image has everything but Ansible, which the
+Linux, the Azure CLI (the session adds its `bastion` and `ssh` extensions), `ansible-core`, bash,
+`jq`, `python3`, OpenSSH, and for `ssh_auth = "key"` PowerShell 7 with LibreDevOpsHelpers (installed
+from PSGallery if missing). GitHub's `ubuntu-latest` image has everything but Ansible, which the
 workflow installs with pipx.
+
+The identity running Terraform needs, on top of building the stack, to create and delete the
+bastion, its public IP and (for `entra`) role assignments on the VM: the CI service principal has
+these already.
 
 ## Developing
 
-`just validate` runs what CI runs: `terraform fmt`, `validate` and `tflint` for every stack, a
-`trivy config` scan, `shellcheck`, and an Ansible syntax check of every playbook. New builds go in
-their own `stacks/<name>` with a playbook in `ansible/playbooks` and their own workflows, following the
-same open, configure, close shape.
+`just validate` runs what CI runs: `terraform fmt`, `validate` and `tflint` for every stack and a
+`trivy config` scan. New builds go in their own `stacks/<name>` with their own workflows: a
+bastion-session module call, terraform-ansible-role calls for the roles (each with
+`count = var.configure ? 1 : 0` and listed in the session's `close_after`), and an always() close
+step after the apply.
 
 ## Security scan exceptions
 
-None. Waivers would live in [`.trivyignore.yaml`](./.trivyignore.yaml) with a matching row here.
+Waivers live in [`.trivyignore.yaml`](./.trivyignore.yaml), mirrored here so the reason is auditable.
+
+| Trivy ID | Resource | Finding | Justification |
+|----------|----------|---------|---------------|
+| DS-0002 | `**/.terraform/modules/*/tests/e2e/image/Containerfile` | Container image runs as root | Not this repo's code: `terraform init` downloads [terraform-ansible-role](https://github.com/libre-devops/terraform-ansible-role) into the stacks' `.terraform/modules`, and with it its end-to-end test fixture, whose SSH hosts run systemd as PID 1 (which must be root). That repo waives the same finding for the same file. |
