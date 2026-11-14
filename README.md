@@ -170,6 +170,10 @@ starts. **What it cannot:** onboarding, the cloud connectivity test, security in
 or a detection reaching the portal, which all need the Defender cloud. The
 [mde-linux](#mde-linux-vm) stack, which has egress, covers those.
 
+On the first pipeline run (UK South, `mdatp` 101.26101.0000) the download took 14s, opening the
+session 11m 47s, pushing the 157 MB RPM through the bastion and installing and starting the agent
+2m 41s, and closing it 8m 2s, all in one apply.
+
 Deploy with the `MDE RHEL offline VM - deploy` workflow (`just deploy-offline dev`, or
 `just deploy-offline dev 101.26101.0000 true` for a version and a teardown at the end), and destroy
 with `MDE RHEL offline VM - destroy`. A failed local apply leaves its bastion to
