@@ -77,7 +77,7 @@ jobs:
           targets="$(az vm list --resource-group "${RESOURCE_GROUP}" --query '[].{name: name, id: id}' \
             --output json --only-show-errors | jq 'map({(.name): {id: .id}}) | add // {}')"
           export BASTION_SESSION="$(jq -n --arg name "${SESSION_NAME}" --arg bastion "${BASTION}" \
-            --arg rg "${RESOURCE_GROUP}" --argjson targets "${targets}" \
-            '{name: $name, auth: "entra", bastion: {name: $bastion, resource_group_name: $rg},
-              login_role: {enabled: true}, targets: $targets}')"
+            --arg rg "${RESOURCE_GROUP}" --arg sub "${{ vars.AZURE_SUBSCRIPTION_ID }}" --argjson targets "${targets}" \
+            '{name: $name, auth: "entra", login_role: {enabled: true}, targets: $targets,
+              bastion: {name: $bastion, resource_group_name: $rg, subscription_id: $sub}}')"
           stacks/mde-linux/.terraform/modules/bastion_session/scripts/close.sh

@@ -216,21 +216,22 @@ module "vm_entra_login" {
 # principal in the pipeline), all created when the session opens and deleted when it closes, so none
 # of it is in state. It hands ansible_hosts to the role calls below, which reach the VM through it.
 module "bastion_session" {
-  # Pinned to the commit with the GitHub OIDC fix while it is proven, then to its tag; once the
+  # Pinned to the commit under test (GitHub OIDC fix, resource group by id), then to its tag; once the
   # module is on the Terraform Registry, source = "libre-devops/bastion-session/azurerm" with
   # version = "~> 4.0".
-  source = "git::https://github.com/libre-devops/terraform-azurerm-bastion-session.git?ref=33767f72fb3d7045915cbc38448525b46f20999f"
+  source = "git::https://github.com/libre-devops/terraform-azurerm-bastion-session.git?ref=7c435d10c32f9d6d81be9e54411a339b34fa2932"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
 
   name      = "mde-linux"
   configure = var.configure
   auth      = var.ssh_auth
 
   bastion = {
-    name                = local.bas_name
-    resource_group_name = local.rg_name
-    location            = local.location
-    subnet_id           = module.network.subnet_ids["AzureBastionSubnet"]
-    tags                = module.tags.tags
+    name      = local.bas_name
+    subnet_id = module.network.subnet_ids["AzureBastionSubnet"]
   }
 
   # user and ssh_key_secret_id are for ssh_auth = "key"; entra signs in as the CI identity.
