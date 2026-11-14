@@ -216,10 +216,9 @@ module "vm_entra_login" {
 # principal in the pipeline), all created when the session opens and deleted when it closes, so none
 # of it is in state. It hands ansible_hosts to the role calls below, which reach the VM through it.
 module "bastion_session" {
-  # Pinned to the commit under test (GitHub OIDC fix, resource group by id), then to its tag; once the
-  # module is on the Terraform Registry, source = "libre-devops/bastion-session/azurerm" with
-  # version = "~> 4.0".
-  source = "git::https://github.com/libre-devops/terraform-azurerm-bastion-session.git?ref=7c435d10c32f9d6d81be9e54411a339b34fa2932"
+  # Pinned to the GitHub tag until the module is published on the Terraform Registry; then switch to
+  # source = "libre-devops/bastion-session/azurerm" with version = "~> 4.0".
+  source = "git::https://github.com/libre-devops/terraform-azurerm-bastion-session.git?ref=4.0.0"
 
   resource_group_id = module.rg.ids[local.rg_name]
   location          = local.location
