@@ -146,6 +146,35 @@ The identity running Terraform needs, on top of building the stack, to create an
 bastion, its public IP and (for `entra`) role assignments on the VM: the CI service principal has
 these already.
 
+## MDE on RHEL with no internet
+
+[`stacks/mde-rhel-offline`](./stacks/mde-rhel-offline) builds a RHEL 9 VM that can reach nothing,
+and installs Defender for Endpoint on it from the RPM, downloaded on the runner and pushed through a
+bastion session. It answers the first question about a new `mdatp` release: does it install and
+start on a host with no repositories, from nothing but the image's own packages?
+
+The VM has no public IP and no NAT gateway, and the network module's subnets have no default
+outbound access, so it reaches neither the internet nor its own Red Hat repositories (RHUI). The
+only way in is SSH from the bastion subnet, while a session is open.
+
+| Step | What happens |
+|---|---|
+| Download | [`libre_devops.rpm_repo_download`](https://github.com/libre-devops/ansible-role-rpm-repo-download) runs on the runner, which has the internet, and fetches `mdatp` from `packages.microsoft.com/rhel/9/prod`: the workflow's `mde_version`, or the newest. It checks the repository's signature against Microsoft's keys and every checksum on the way down. |
+| Open | The bastion-session module creates a Standard bastion for the apply and fetches the admin account's vaulted SSH key. Entra ID sign-in would need the VM to reach Entra ID, which it cannot. |
+| Install | [`libre_devops.standalone_package_installer`](https://github.com/libre-devops/ansible-role-standalone-package-installer) pushes the RPM through the bastion and installs it from the file alone, with every repository disabled, after checking its signature. [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux) then starts and configures the agent with `mde_linux_manage_repository: false`, and does not call the package manager, which would fail on the unreachable repositories. |
+| Close | The bastion and its public IP go once the install has finished; the deploy workflow's always() step and an hourly sweeper catch anything a failed run leaves, as for the mde-linux stack. |
+
+**What it proves:** that the release's signature is Microsoft's, that it installs with nothing but
+the image's own packages (`mdatp` needs `glibc`, `iptables` and `libacl`), and that the agent
+starts. **What it cannot:** onboarding, the cloud connectivity test, security intelligence updates
+or a detection reaching the portal, which all need the Defender cloud. The
+[mde-linux](#mde-linux-vm) stack, which has egress, covers those.
+
+Deploy with the `MDE RHEL offline VM - deploy` workflow (`just deploy-offline dev`, or
+`just deploy-offline dev 101.26101.0000 true` for a version and a teardown at the end), and destroy
+with `MDE RHEL offline VM - destroy`. A failed local apply leaves its bastion to
+`just close mde-rhel-offline mde-rhel-offline`.
+
 ## Developing
 
 `just validate` runs what CI runs: `terraform fmt`, `validate` and `tflint` for every stack and a

@@ -28,6 +28,14 @@ deploy workspace="dev" ssh_auth="entra" destroy_after="false":
 close-access workspace="dev":
     gh workflow run mde-linux-close-access.yml -f workspace='{{ workspace }}'
 
-# Close the bastion session a failed local apply left open (az login first). Does nothing when none is.
+# Run the MDE RHEL offline deploy pipeline. Example: just deploy-offline dev latest true (destroy afterwards)
+deploy-offline workspace="dev" mde_version="latest" destroy_after="false":
+    gh workflow run mde-rhel-offline-deploy.yml -f workspace='{{ workspace }}' -f mde_version='{{ mde_version }}' -f destroy_after='{{ destroy_after }}'
+
+# Close a leftover bastion session from the offline stack now rather than waiting for the hourly sweep.
+close-access-offline workspace="dev":
+    gh workflow run mde-rhel-offline-close-access.yml -f workspace='{{ workspace }}'
+
+# Close the bastion session a failed local apply left open (az login first; nothing to do is fine). Example: just close mde-rhel-offline mde-rhel-offline
 close stack="mde-linux" session="mde-linux":
     stacks/{{ stack }}/.terraform/modules/bastion_session/scripts/close.sh stacks/{{ stack }}/.terraform/bastion-session/{{ session }}

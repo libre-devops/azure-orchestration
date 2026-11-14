@@ -1,0 +1,82 @@
+name: MDE RHEL offline VM - close a leftover bastion session
+
+# The safety net for "only alive as long as needed". The deploy workflow's apply closes its bastion
+# session, and its always() step closes one a failed apply left open, but a run cancelled hard enough
+# (a runner lost mid-job) reaches neither. Every hour this looks in the stack's resource group for
+# anything the session creates (a bastion or public IP tagged BastionSession=mde-rhel-offline) and, only if it finds something, runs the
+# session's close script, which deletes just those. It needs no Terraform state, and it shares the
+# deploy workflow's concurrency group, so it never closes a session under a run that is using it.
+on:
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Terraform workspace (environment).
+        type: string
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: mde-rhel-offline-${{ inputs.workspace || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  # Matches the stack's naming (rg-mdo-<short>-<loc>-<workspace>-001) and its bastion_session call.
+  RESOURCE_GROUP: rg-mdo-ldo-uks-${{ inputs.workspace || 'dev' }}-001
+  BASTION: bas-mdo-ldo-uks-${{ inputs.workspace || 'dev' }}-001
+  SESSION_NAME: mde-rhel-offline
+
+jobs:
+  close:
+    name: Close a leftover bastion session (${{ inputs.workspace || 'dev' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Look for a leftover session
+        id: check
+        run: |
+          set -euo pipefail
+          if [ "$(az group exists --name "${RESOURCE_GROUP}")" != "true" ]; then
+            echo "open=false" >>"${GITHUB_OUTPUT}"; echo "No stack in ${RESOURCE_GROUP}."; exit 0
+          fi
+          resources="$(az resource list --resource-group "${RESOURCE_GROUP}" --tag "BastionSession=${SESSION_NAME}" \
+            --query 'length(@)' --output tsv --only-show-errors)"
+          roles="$(az role assignment list --all --fill-principal-name false --only-show-errors --output tsv \
+            --query "length([?description=='BastionSession=${SESSION_NAME}' && contains(scope, '/resourceGroups/${RESOURCE_GROUP}/')])")"
+          echo "Session resources in ${RESOURCE_GROUP}: ${resources}; session role assignments: ${roles}"
+          echo "open=$([ "${resources}" -gt 0 ] || [ "${roles}" -gt 0 ] && echo true || echo false)" >>"${GITHUB_OUTPUT}"
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.open == 'true'
+
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.check.outputs.open == 'true'
+        with:
+          terraform_version: "~> 1.11"
+          terraform_wrapper: false
+
+      # terraform get downloads the stack's bastion-session module (no providers, backend or
+      # state), so the close script is the same version the deploy ran. The session's settings are
+      # rebuilt from the stack's names and the VMs in the resource group.
+      - name: Close the session
+        if: steps.check.outputs.open == 'true'
+        run: |
+          set -euo pipefail
+          terraform -chdir=stacks/mde-rhel-offline get >/dev/null
+          targets="$(az vm list --resource-group "${RESOURCE_GROUP}" --query '[].{name: name, id: id}' \
+            --output json --only-show-errors | jq 'map({(.name): {id: .id}}) | add // {}')"
+          export BASTION_SESSION="$(jq -n --arg name "${SESSION_NAME}" --arg bastion "${BASTION}" \
+            --arg rg "${RESOURCE_GROUP}" --arg sub "${{ vars.AZURE_SUBSCRIPTION_ID }}" --argjson targets "${targets}" \
+            '{name: $name, auth: "entra", login_role: {enabled: true}, targets: $targets,
+              bastion: {name: $bastion, resource_group_name: $rg, subscription_id: $sub}}')"
+          stacks/mde-rhel-offline/.terraform/modules/bastion_session/scripts/close.sh

@@ -273,7 +273,7 @@ module "mde_linux" {
   count  = var.configure ? 1 : 0
 
   name  = "mde-linux"
-  roles = [{ name = "libre_devops.mde_linux", version = "1.1.0" }]
+  roles = [{ name = "libre_devops.mde_linux", version = "1.1.1" }]
   hosts = { for name, host in module.bastion_session.ansible_hosts : name => host if contains(host.groups, "mde_linux") }
 
   vars = {

@@ -1,6 +1,7 @@
 name: MDE Linux VM - destroy
 
-# Tears the whole stack down: the VM, its egress and network, and any open access window.
+# Tears the whole stack down: the VM, its egress and network. Destroying the bastion session's open
+# step runs its close script first, so a bastion a failed run left behind goes too.
 on:
   workflow_dispatch:
     inputs:
@@ -35,8 +36,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Every Terraform step passes the runner as key_vault_ip_rules (see the stack's variable), and
-      # the action's key vault dance removes the rule after each step. This also installs
-      # LibreDevOpsHelpers for the bastion-ansible script's key fetch.
+      # the action's key vault dance removes the rule after each step.
       - name: Find the runner's egress IP
         shell: pwsh
         run: |
