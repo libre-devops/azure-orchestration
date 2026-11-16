@@ -1,0 +1,445 @@
+<mxfile host="drawio" agent="libre-devops" version="24.7.17" type="device">
+  <diagram name="Release testing" id="release-testing">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c2" value="Testing a Defender for Endpoint release, automatically" style="text;html=1;align=left;verticalAlign=top;fontSize=26;fontStyle=1;fontColor=#1E3A8A;" parent="1" vertex="1">
+          <mxGeometry x="40" y="20" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="One pipeline run builds the test machines, installs the release, tests it and reports. People read the report and decide." style="text;html=1;align=left;verticalAlign=top;fontSize=14;fontColor=#4D4D4D;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="40" y="62" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="&lt;b&gt;New mdatp release&lt;/b&gt;&lt;br&gt;or run by hand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="140" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="&lt;b&gt;GitHub Actions&lt;/b&gt;&lt;br&gt;the mde-rhel-offline-deploy workflow" style="image;aspect=fixed;html=1;points=[];fontSize=12;image=images/github-logo.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=260;" parent="1" vertex="1">
+          <mxGeometry x="290" y="142" width="56" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c4" target="c5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="The pipeline: one Terraform apply, about 30 minutes, nothing left running afterwards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F9FC;strokeColor=#1E3A8A;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="40" y="240" width="1570" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="20" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="&lt;b&gt;Download&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="56" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="The runner fetches the RPM from packages.microsoft.com and checks the repository's signature and every checksum." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="20" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="rpm_repo_download" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="20" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="2" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="242" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="&lt;b&gt;Build&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="278" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="Terraform builds the test VMs: no public IP, no route to the internet, SSH only from the bastion subnet." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="242" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Terraform modules" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="242" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c9" target="c12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="464" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="&lt;b&gt;Open&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="500" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="A just-in-time Azure Bastion and the vaulted SSH key, for this run only." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="464" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="bastion-session" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="464" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c13" target="c17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="686" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="&lt;b&gt;Install&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="722" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c24" value="The RPM is pushed through the bastion and installed from the file alone, its signature checked." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="686" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c25" value="standalone_package_installer&lt;br&gt;mde_linux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="686" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c18" target="c22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c27" value="5" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="908" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c28" value="&lt;b&gt;Test&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="944" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c29" value="Up to 63 checks: readiness, installation, stability, protection (EICAR), configuration, onboarding, the system, resources, a reboot, upgrades." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="908" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c30" value="mde_linux_checks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="908" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c23" target="c27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c32" value="6" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="1130" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c33" value="&lt;b&gt;Report&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1166" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c34" value="A verdict against your thresholds and waivers: HTML for people, JSON for pipelines, JUnit for CI." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1130" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c35" value="test_results_report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1130" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c36" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c28" target="c32">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c37" value="7" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c7" vertex="1">
+          <mxGeometry x="1352" y="50" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c38" value="&lt;b&gt;Close&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1388" y="45" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c39" value="The bastion is deleted. End-to-end runs destroy the VMs too: nothing left billing." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1352" y="100" width="196" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c40" value="bastion-session&lt;br&gt;Terraform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+          <mxGeometry x="1352" y="262" width="196" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="c41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c33" target="c37">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c42" value="Test VMs, one per RHEL release" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=11;container=1;collapsible=0;arcSize=3;" parent="c7" vertex="1">
+          <mxGeometry x="466" y="335" width="196" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="c43" value="&lt;b&gt;RHEL 9&lt;/b&gt;&lt;br&gt;today" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+          <mxGeometry x="14" y="30" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c44" value="RHEL 8&lt;br&gt;next" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+          <mxGeometry x="76" y="30" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c45" value="RHEL 7&lt;br&gt;later" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+          <mxGeometry x="138" y="30" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c46" value="&lt;i&gt;Roles in purple are libre_devops Ansible roles, run from Terraform through the bastion.&lt;/i&gt;" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="c7" vertex="1">
+          <mxGeometry x="20" y="420" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c47" value="People" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBF0;strokeColor=#d6b656;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="40" y="740" width="1570" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="c48" value="&lt;b&gt;Review&lt;/b&gt;&lt;br&gt;Read the report: what failed, why, what to do. Waive what is accepted, with a reason and an expiry." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c47" vertex="1">
+          <mxGeometry x="20" y="45" width="360" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c49" value="&lt;b&gt;Approve and publish&lt;/b&gt;&lt;br&gt;Promote the release (at work: to the production Satellite content view)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c47" vertex="1">
+          <mxGeometry x="420" y="45" width="330" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c50" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c48" target="c49">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c51" value="8" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d6b656;strokeColor=#d6b656;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c47" vertex="1">
+          <mxGeometry x="-10" y="30" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c52" value="9" style="ellipse;whiteSpace=wrap;html=1;fillColor=#82b366;strokeColor=#82b366;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="c47" vertex="1">
+          <mxGeometry x="400" y="30" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c53" value="&lt;b&gt;What the pipeline replaces&lt;/b&gt;&lt;br&gt;Building a VM, subscribing it, installing the release, checking it by hand, destroying it: the same every month, now in one run, with evidence." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="c47" vertex="1">
+          <mxGeometry x="800" y="40" width="360" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c54" value="&lt;b&gt;What stays with people&lt;/b&gt;&lt;br&gt;Judgement: reading the report and deciding to release. Everything up to that point is repeatable and recorded." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="c47" vertex="1">
+          <mxGeometry x="1190" y="40" width="360" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c55" value="test-results.html, for people" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" edge="1" source="c35" target="c48">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1268" y="725" />
+              <mxPoint x="240" y="725" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c56" value="&lt;b&gt;The matrix&lt;/b&gt;&lt;br&gt;The stack builds RHEL 9 today. RHEL 8 is one more VM in the same apply, with a newer Python pushed for current Ansible (libre_devops.python does that). RHEL 7 is more work: the roles start at EL 8, and ansible-core 2.17 and later cannot manage its Python." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
+          <mxGeometry x="1190" y="960" width="420" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c57" value="&lt;b&gt;Measured&lt;/b&gt; (16 November 2026, RHEL 9.8, mdatp 101.26101.0000): 44 checks passed, 11 skipped with reasons; EICAR detected in 0.4 s; back 70 s after a reboot." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
+          <mxGeometry x="40" y="960" width="520" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Azure architecture" id="azure-architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c2" value="stacks/mde-rhel-offline: what is in Azure" style="text;html=1;align=left;verticalAlign=top;fontSize=26;fontStyle=1;fontColor=#1E3A8A;" parent="1" vertex="1">
+          <mxGeometry x="40" y="20" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="A RHEL VM that can reach nothing, reached only through a bastion that exists for the length of one apply." style="text;html=1;align=left;verticalAlign=top;fontSize=14;fontColor=#4D4D4D;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="40" y="62" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="Internet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=13;container=1;collapsible=0;arcSize=3;dashed=1;dashPattern=8 4;" parent="1" vertex="1">
+          <mxGeometry x="40" y="140" width="340" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="&lt;b&gt;packages.microsoft.com&lt;/b&gt;&lt;br&gt;rhel/9/prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c4" vertex="1">
+          <mxGeometry x="20" y="40" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="GitHub Actions runner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="40" y="300" width="340" height="480" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="" style="image;aspect=fixed;html=1;points=[];fontSize=12;image=images/github-logo.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=160;" parent="c6" vertex="1">
+          <mxGeometry x="280" y="6" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="&lt;b&gt;Download&lt;/b&gt;&lt;br&gt;rpm_repo_download fetches the RPM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c6" vertex="1">
+          <mxGeometry x="20" y="40" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="&lt;b&gt;Ansible&lt;/b&gt;&lt;br&gt;terraform-ansible-role runs the roles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c6" vertex="1">
+          <mxGeometry x="20" y="130" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="&lt;b&gt;Test report&lt;/b&gt;&lt;br&gt;HTML, JSON, JUnit and evidence, uploaded as an artifact" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c6" vertex="1">
+          <mxGeometry x="20" y="220" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="&lt;b&gt;Terraform&lt;/b&gt;&lt;br&gt;the libre-devops/terraform-azure action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c6" vertex="1">
+          <mxGeometry x="20" y="320" width="300" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="results" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" edge="1" source="c9" target="c10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="1. download; check the signature and checksums" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" parent="1" edge="1" source="c8" target="c5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="Azure subscription" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="430" y="140" width="790" height="960" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Resource group rg-mdo-ldo-uks-&amp;lt;environment&amp;gt;-001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F8FF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=13;container=1;collapsible=0;arcSize=3;" parent="c14" vertex="1">
+          <mxGeometry x="20" y="50" width="750" height="720" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="" style="image;aspect=fixed;html=1;points=[];fontSize=12;image=img/lib/azure2/general/Resource_Groups.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=160;" parent="c15" vertex="1">
+          <mxGeometry x="700" y="8" width="32" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Virtual network 10.30.0.0/16" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=13;container=1;collapsible=0;arcSize=3;" parent="c15" vertex="1">
+          <mxGeometry x="20" y="50" width="710" height="500" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="" style="image;aspect=fixed;html=1;points=[];fontSize=12;image=img/lib/azure2/networking/Virtual_Networks.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=160;" parent="c17" vertex="1">
+          <mxGeometry x="668" y="8" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="AzureBastionSubnet 10.30.0.0/26" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8F0;strokeColor=#d79b00;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=12;container=1;collapsible=0;arcSize=3;dashed=1;dashPattern=8 4;" parent="c17" vertex="1">
+          <mxGeometry x="20" y="50" width="320" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="Public IP" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/networking/Public_IP_Addresses.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=100;" parent="c19" vertex="1">
+          <mxGeometry x="30" y="100" width="52" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="&lt;b&gt;Azure Bastion&lt;/b&gt; (Standard)&lt;br&gt;native client tunnelling" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/networking/Bastions.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=150;" parent="c19" vertex="1">
+          <mxGeometry x="200" y="100" width="56" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c20" target="c21">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="&lt;i&gt;Dashed: created and deleted by the bastion-session module inside the apply. It exists only while Ansible runs.&lt;/i&gt;" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="c19" vertex="1">
+          <mxGeometry x="20" y="330" width="290" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c24" value="snet-vm 10.30.1.0/24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#82b366;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=12;container=1;collapsible=0;arcSize=3;" parent="c17" vertex="1">
+          <mxGeometry x="360" y="50" width="330" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="c25" value="&lt;b&gt;NSG&lt;/b&gt;: SSH 22 from the bastion subnet only" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/networking/Network_Security_Groups.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=250;" parent="c24" vertex="1">
+          <mxGeometry x="20" y="40" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c26" value="&lt;b&gt;RHEL 9 VM&lt;/b&gt;&lt;br&gt;no public IP, no NAT,&lt;br&gt;no default outbound access" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=200;" parent="c24" vertex="1">
+          <mxGeometry x="110" y="100" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c27" value="Defender for Endpoint, installed and tested" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/security/Azure_Defender.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=240;" parent="c24" vertex="1">
+          <mxGeometry x="20" y="270" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c28" value="No route to the internet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;fontStyle=1;" parent="c24" vertex="1">
+          <mxGeometry x="20" y="350" width="290" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c29" value="&lt;b&gt;Key Vault&lt;/b&gt;: the admin SSH key. Deny by default; the runner's IP is let in for the run. Access policies by exception (RBAC way in main.tf)." style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/security/Key_Vaults.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=420;" parent="c15" vertex="1">
+          <mxGeometry x="40" y="600" width="52" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="c30" value="&lt;b&gt;Entra ID app registration&lt;/b&gt;: OIDC federated credential, no secrets" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/identity/App_Registrations.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=420;" parent="c14" vertex="1">
+          <mxGeometry x="40" y="820" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="c31" value="&lt;b&gt;Terraform state&lt;/b&gt;: a storage account, firewalled" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/storage/Storage_Accounts.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=420;" parent="c14" vertex="1">
+          <mxGeometry x="40" y="890" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="c32" value="2. SSH, tunnelled over HTTPS 443" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1" source="c9" target="c20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c33" value="3. SSH 22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1" source="c21" target="c26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c34" value="fetch the key" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;dashed=1;exitX=1;exitY=0.85;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1" source="c9" target="c29">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="481" />
+              <mxPoint x="405" y="816" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c35" value="sign in" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#0078D4;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" edge="1" source="c11" target="c30">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="210" y="984" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="c36" value="&lt;b&gt;Why this shape&lt;/b&gt;&lt;br&gt;No VPN, no self-hosted runner, no inbound rule from the internet. The bastion, its IP and any sign-in role exist for minutes, inside one apply. An always() step and an hourly sweeper remove anything a failed run leaves." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
+          <mxGeometry x="1260" y="140" width="350" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="c37" value="&lt;b&gt;Offline on purpose&lt;/b&gt;&lt;br&gt;The VM reaches nothing, so the test proves the release installs and protects from the RPM alone. Cloud-delivered protection is off: with it on and no route out, each detection waited 40 s for the cloud." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
+          <mxGeometry x="1260" y="320" width="350" height="150" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="One apply, step by step" id="one-apply,-step-by-step">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="c2" value="One apply, step by step" style="text;html=1;align=left;verticalAlign=top;fontSize=26;fontStyle=1;fontColor=#1E3A8A;" parent="1" vertex="1">
+          <mxGeometry x="40" y="20" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="terraform apply -var configure=true. Terraform orders it all from references: nothing runs before what it needs exists." style="text;html=1;align=left;verticalAlign=top;fontSize=14;fontColor=#4D4D4D;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="40" y="62" width="1500" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="40" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="&lt;b&gt;Infrastructure&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="76" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="VNet, subnets, NSG, Key Vault, the ephemeral SSH key, the RHEL 9 VM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="&lt;font face='monospace'&gt;linux-vm, network, nsg, keyvault, ssh-key&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="&lt;b&gt;first apply only&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="40" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="2" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="302" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="&lt;b&gt;Download&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="338" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="rpm_repo_download on the runner, into .terraform/mde-packages/&amp;lt;plan time&amp;gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="302" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="&lt;font face='monospace'&gt;module.download (localhost)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="302" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="&lt;b&gt;8 s&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="302" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c5" target="c10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="3" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="564" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="&lt;b&gt;Open&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="600" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Bastion and public IP created by az; key fetched; tunnel; SSH signs in" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="564" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="&lt;font face='monospace'&gt;module.bastion_session: terraform_data.open&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="564" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="&lt;b&gt;11 m 38 s&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="564" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c10" target="c16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="4" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="826" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="&lt;b&gt;Install and test&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="862" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="standalone_package_installer, mde_linux, mde_linux_checks (reboot included), test_results_report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="826" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c24" value="&lt;font face='monospace'&gt;module.mde: one ansible_playbook per VM&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="826" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c25" value="&lt;b&gt;5 m 0 s&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="826" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c16" target="c22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c27" value="5" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="1088" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c28" value="&lt;b&gt;Close&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1124" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c29" value="Tunnels stopped, bastion and public IP deleted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1088" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c30" value="&lt;font face='monospace'&gt;terraform_data.close, after close_after&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1088" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c31" value="&lt;b&gt;8 m 1 s&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#d79b00;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1088" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c32" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c22" target="c28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c33" value="6" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1E3A8A;strokeColor=#1E3A8A;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="150" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c34" value="&lt;b&gt;Destroy&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1386" y="145" width="200" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="c35" value="End-to-end runs (destroy_after): the whole stack" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="200" width="236" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c36" value="&lt;font face='monospace'&gt;terraform destroy&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="320" width="236" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c37" value="&lt;b&gt;3 m 57 s&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=13;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+          <mxGeometry x="1350" y="390" width="236" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c28" target="c34">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c39" value="Times from pipeline run 43787619871 (UK South, 16 November 2026)." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="1" vertex="1">
+          <mxGeometry x="40" y="440" width="600" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="c40" value="If something fails part way" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#b85450;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="40" y="500" width="1570" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="c41" value="&lt;b&gt;open.sh fails&lt;/b&gt;&lt;br&gt;It closes what it created itself: Terraform skips destroy-time steps for a failed resource." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c40" vertex="1">
+          <mxGeometry x="20" y="50" width="360" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c42" value="&lt;b&gt;A role fails&lt;/b&gt;&lt;br&gt;Terraform skips the close step, so the workflow's always() step runs close.sh from the session's own file, without Terraform state." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c40" vertex="1">
+          <mxGeometry x="400" y="50" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c43" value="&lt;b&gt;The runner is lost&lt;/b&gt;&lt;br&gt;An hourly sweeper finds anything tagged BastionSession=mde-rhel-offline and closes it." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c40" vertex="1">
+          <mxGeometry x="820" y="50" width="360" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="c44" value="&lt;b&gt;Whatever was written comes back&lt;/b&gt;&lt;br&gt;An always() step uploads test-results/, so a failed run still returns its report and evidence." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c40" vertex="1">
+          <mxGeometry x="1200" y="50" width="350" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

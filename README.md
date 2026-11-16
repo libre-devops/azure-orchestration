@@ -177,6 +177,71 @@ The VM has no public IP and no NAT gateway, and the network module's subnets hav
 outbound access, so it reaches neither the internet nor its own Red Hat repositories (RHUI). The
 only way in is SSH from the bastion subnet, while a session is open.
 
+### How a release is tested
+
+One pipeline run does the testing; people read the report and decide. The draw.io version,
+[`docs/diagrams/mde-release-testing.drawio`](./docs/diagrams/mde-release-testing.drawio), has three
+pages: this concept, the Azure architecture, and one apply step by step with its timings. GitHub does
+not draw `.drawio` files: open it in [draw.io](https://app.diagrams.net) or the desktop app.
+
+```mermaid
+flowchart TB
+    trigger(["New mdatp release, or run by hand"]) --> gha["GitHub Actions: MDE RHEL offline VM - deploy"]
+    gha --> apply
+
+    subgraph apply["One terraform apply, about 30 minutes"]
+        direction LR
+        download["1 Download<br/>rpm_repo_download"] --> build["2 Build<br/>RHEL VM, no route out"]
+        build --> open["3 Open<br/>bastion session"]
+        open --> install["4 Install<br/>standalone_package_installer<br/>mde_linux"]
+        install --> test["5 Test<br/>mde_linux_checks"]
+        test --> report["6 Report<br/>test_results_report"]
+        report --> close["7 Close<br/>bastion deleted"]
+    end
+
+    apply --> results[("test-results artifact: HTML, JSON, JUnit, evidence")]
+    results --> review{"8 People review"}
+    review -->|"passed, or failures waived with a reason"| publish(["9 Approve and publish"])
+    review -->|"a real failure"| hold(["Hold the release"])
+
+    classDef role fill:#e1d5e7,stroke:#9673a6,color:#000
+    classDef people fill:#fff2cc,stroke:#d6b656,color:#000
+    class download,install,test,report role
+    class review,publish,hold people
+```
+
+Purple steps are libre_devops Ansible roles, which Terraform runs through the bastion. The same run,
+as the runner sees it:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Runner as GitHub Actions runner
+    participant PMC as packages.microsoft.com
+    participant Azure as Azure
+    participant KV as Key Vault
+    participant Bastion as Bastion (this apply only)
+    participant VM as RHEL VM (no route out)
+
+    Runner->>Azure: terraform apply: network, NSG, Key Vault, VM
+    Runner->>PMC: download mdatp, check the signature and checksums
+    Runner->>Azure: create the bastion and its public IP
+    Runner->>KV: fetch the admin SSH key (runner IP allowed for the run)
+    Runner->>Bastion: SSH tunnelled over HTTPS 443
+    Bastion->>VM: SSH 22
+    Runner->>VM: push the RPM, install and configure the agent
+    Runner->>VM: run the checks: EICAR, a reboot, room for updates
+    VM-->>Runner: results and evidence
+    Runner->>Runner: test_results_report: verdict, HTML, JSON, JUnit
+    Runner->>Azure: delete the bastion and its public IP
+    Runner->>Azure: terraform destroy (end-to-end runs)
+```
+
+The stack builds RHEL 9 today. RHEL 8 is one more VM in the same apply, with a newer Python pushed
+for current Ansible, which [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python)
+does from pushed files. RHEL 7 is more work: the roles support EL 8 and later, and ansible-core 2.17
+and later cannot manage RHEL 7's Python.
+
 | Step | What happens |
 |---|---|
 | Download | [`libre_devops.rpm_repo_download`](https://github.com/libre-devops/ansible-role-rpm-repo-download) runs on the runner, which has the internet, and fetches `mdatp` from `packages.microsoft.com/rhel/9/prod`: the workflow's `mde_version`, or the newest. It checks the repository's signature against Microsoft's keys and every checksum on the way down. |
