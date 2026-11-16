@@ -181,8 +181,9 @@ RHEL 7 and 8 ship Pythons (2.7 and 3.6) that current ansible-core cannot use, so
 [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python) first pushes them a
 python-build-standalone build (the `python_archive` variable), downloaded and checked on the runner;
 RHEL 9's own 3.9 is kept. RHEL 7 has yum, not dnf, which the roles handle. Its image is 7.9 (March
-2023, the last), and it is not on Azure's Trusted Launch list, so its VM boots without secure boot
-and vTPM.
+2023, the last). It is not on Azure's Trusted Launch list, so its VM boots without secure boot and
+vTPM, and it boots from SCSI only, so it runs on a v5 size (`vm_sizes`): the v6 sizes have NVMe disk
+controllers only, which Azure refuses for that image when it creates the VM.
 
 ### How a release is tested
 

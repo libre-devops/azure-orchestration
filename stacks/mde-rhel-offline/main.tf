@@ -37,11 +37,13 @@ locals {
   subnet_vm    = "snet-vm-${local.vnet_name}"
 
   # One VM per RHEL release. RHEL 7 is not on Azure's Trusted Launch list (8.6 and later are), so
-  # its VM boots without secure boot and vTPM; its image, 7.9 from March 2023, is the last.
+  # its VM boots without secure boot and vTPM; its image, 7.9 from March 2023, is the last, and
+  # boots from SCSI only, so it needs a size with a SCSI disk controller (see vm_sizes).
   releases = {
     for r in var.rhel_releases : r => {
       vm_name = "vm-mdo-rhel${r}-${local.suffix}"
       sku     = { "7" = "7lvm-gen2", "8" = "8-lvm-gen2", "9" = "9-lvm-gen2" }[r]
+      size    = lookup(var.vm_sizes, r, var.vm_size)
       trusted = r != "7"
     }
   }
@@ -217,7 +219,7 @@ module "linux_vm" {
 
   linux_virtual_machines = {
     for r, rel in local.releases : rel.vm_name => {
-      size                   = var.vm_size
+      size                   = rel.size
       admin_username         = "azureuser"
       source_image_reference = { publisher = "RedHat", offer = "RHEL", sku = rel.sku }
       secure_boot_enabled    = rel.trusted

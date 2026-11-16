@@ -101,8 +101,18 @@ variable "run_url" {
   default     = ""
 }
 
+variable "vm_sizes" {
+  description = <<DESC
+Sizes for particular RHEL releases, overriding vm_size. RHEL 7's image boots from SCSI only, and the
+v6 sizes (such as vm_size's Standard_D2lds_v6) have NVMe disk controllers only, so RHEL 7 gets a v5
+size, which has SCSI. Azure refuses the mismatch when it creates the VM, not at plan.
+DESC
+  type        = map(string)
+  default     = { "7" = "Standard_D2lds_v5" }
+}
+
 variable "vm_size" {
-  description = "Size of each RHEL VM. Defender for Endpoint needs at least 1 core and 1 GB of RAM."
+  description = "Size of each RHEL VM unless vm_sizes names one for its release. Defender for Endpoint needs at least 1 core and 1 GB of RAM."
   type        = string
   default     = "Standard_D2lds_v6"
 }
