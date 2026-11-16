@@ -28,9 +28,9 @@ deploy workspace="dev" ssh_auth="entra" destroy_after="false":
 close-access workspace="dev":
     gh workflow run mde-linux-close-access.yml -f workspace='{{ workspace }}'
 
-# Run the MDE RHEL offline deploy pipeline. Example: just deploy-offline dev latest true (destroy afterwards)
-deploy-offline workspace="dev" mde_version="latest" destroy_after="false":
-    gh workflow run mde-rhel-offline-deploy.yml -f workspace='{{ workspace }}' -f mde_version='{{ mde_version }}' -f destroy_after='{{ destroy_after }}'
+# Run the MDE RHEL offline deploy pipeline (RHEL 7, 8 and 9 unless releases says). Example: just deploy-offline dev latest true 9 (RHEL 9 alone, destroy afterwards)
+deploy-offline workspace="dev" mde_version="latest" destroy_after="false" releases="7,8,9":
+    gh workflow run mde-rhel-offline-deploy.yml -f workspace='{{ workspace }}' -f mde_version='{{ mde_version }}' -f destroy_after='{{ destroy_after }}' -f rhel_releases='{{ releases }}'
 
 # Close a leftover bastion session from the offline stack now rather than waiting for the hourly sweep.
 close-access-offline workspace="dev":

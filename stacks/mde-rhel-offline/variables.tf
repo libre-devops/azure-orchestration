@@ -61,8 +61,36 @@ DESC
   default = false
 }
 
+variable "rhel_releases" {
+  description = "The RHEL major releases to test, one VM each: any of 7, 8 and 9."
+  type        = list(string)
+  default     = ["7", "8", "9"]
+
+  validation {
+    condition     = length(var.rhel_releases) > 0 && alltrue([for r in var.rhel_releases : contains(["7", "8", "9"], r)])
+    error_message = "rhel_releases is a non-empty list of 7, 8 and 9."
+  }
+}
+
+variable "python_archive" {
+  description = <<DESC
+The python-build-standalone build libre_devops.python pushes to RHEL 7 and 8, whose own Pythons
+(2.7 and 3.6) current ansible-core cannot use: an install_only archive's URL, which the machine
+running Terraform downloads, and its SHA-256 from the release's SHA256SUMS. Those builds need glibc
+2.17, which RHEL 7 has.
+DESC
+  type = object({
+    url      = string
+    checksum = string
+  })
+  default = {
+    url      = "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    checksum = "sha256:ce4f6d0a6cfdb3bed6e44c2f9affd85943c76a42e25ad3a259002f31d6fb8a20"
+  }
+}
+
 variable "mde_version" {
-  description = "The mdatp version to download and install, such as 101.26101.0000, or latest (the default) for the newest in Microsoft's RHEL 9 repository."
+  description = "The mdatp version to download and install on every release, such as 101.26101.0000, or latest (the default) for the newest in each release's repository."
   type        = string
   default     = "latest"
 }
@@ -74,7 +102,7 @@ variable "run_url" {
 }
 
 variable "vm_size" {
-  description = "Size of the RHEL 9 VM. Defender for Endpoint needs at least 1 core and 1 GB of RAM."
+  description = "Size of each RHEL VM. Defender for Endpoint needs at least 1 core and 1 GB of RAM."
   type        = string
   default     = "Standard_D2lds_v6"
 }

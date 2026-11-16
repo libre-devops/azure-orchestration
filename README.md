@@ -167,15 +167,23 @@ these already.
 
 ## MDE on RHEL with no internet
 
-[`stacks/mde-rhel-offline`](./stacks/mde-rhel-offline) builds a RHEL 9 VM that can reach nothing,
-and installs Defender for Endpoint on it from the RPM, downloaded on the runner and pushed through a
-bastion session, then tests it. It answers the first questions about a new `mdatp` release: does it
-install, protect and survive a reboot on a host with no repositories and no route out, from
-nothing but the image's own packages?
+[`stacks/mde-rhel-offline`](./stacks/mde-rhel-offline) builds a VM for each RHEL release in
+`rhel_releases` (7, 8 and 9 by default) that can reach nothing, and installs Defender for Endpoint
+on each from its release's RPM, downloaded on the runner and pushed through a bastion session, then
+tests them all, into one report. It answers the first questions about a new `mdatp` release: does
+it install, protect and survive a reboot on each RHEL release, on a host with no repositories and no
+route out, from nothing but the image's own packages?
 
-The VM has no public IP and no NAT gateway, and the network module's subnets have no default
-outbound access, so it reaches neither the internet nor its own Red Hat repositories (RHUI). The
+The VMs have no public IP and no NAT gateway, and the network module's subnets have no default
+outbound access, so they reach neither the internet nor their own Red Hat repositories (RHUI). The
 only way in is SSH from the bastion subnet, while a session is open.
+
+RHEL 7 and 8 ship Pythons (2.7 and 3.6) that current ansible-core cannot use, so
+[`libre_devops.python`](https://github.com/libre-devops/ansible-role-python) first pushes them a
+python-build-standalone build (the `python_archive` variable), downloaded and checked on the runner;
+RHEL 9's own 3.9 is kept. RHEL 7 has yum, not dnf, which the roles handle. Its image is 7.9 (March
+2023, the last), and it is not on Azure's Trusted Launch list, so its VM boots without secure boot
+and vTPM.
 
 ### How a release is tested
 
@@ -189,11 +197,11 @@ flowchart TB
     trigger(["New mdatp release, or run by hand"]) --> gha["GitHub Actions: MDE RHEL offline VM - deploy"]
     gha --> apply
 
-    subgraph apply["One terraform apply, about 30 minutes"]
+    subgraph apply["One terraform apply"]
         direction LR
-        download["1 Download<br/>rpm_repo_download"] --> build["2 Build<br/>RHEL VM, no route out"]
+        download["1 Download<br/>rpm_repo_download"] --> build["2 Build<br/>RHEL 7, 8 and 9 VMs,<br/>no route out"]
         build --> open["3 Open<br/>bastion session"]
-        open --> install["4 Install<br/>standalone_package_installer<br/>mde_linux"]
+        open --> install["4 Install<br/>python<br/>standalone_package_installer<br/>mde_linux"]
         install --> test["5 Test<br/>mde_linux_checks"]
         test --> report["6 Report<br/>test_results_report"]
         report --> close["7 Close<br/>bastion deleted"]
@@ -221,15 +229,15 @@ sequenceDiagram
     participant Azure as Azure
     participant KV as Key Vault
     participant Bastion as Bastion (this apply only)
-    participant VM as RHEL VM (no route out)
+    participant VM as RHEL 7, 8 and 9 VMs (no route out)
 
-    Runner->>Azure: terraform apply: network, NSG, Key Vault, VM
-    Runner->>PMC: download mdatp, check the signature and checksums
+    Runner->>Azure: terraform apply: network, NSG, Key Vault, a VM per release
+    Runner->>PMC: download each release's mdatp, check the signatures and checksums
     Runner->>Azure: create the bastion and its public IP
     Runner->>KV: fetch the admin SSH key (runner IP allowed for the run)
     Runner->>Bastion: SSH tunnelled over HTTPS 443
     Bastion->>VM: SSH 22
-    Runner->>VM: push the RPM, install and configure the agent
+    Runner->>VM: push a Python (RHEL 7 and 8) and the RPM, install and configure the agent
     Runner->>VM: run the checks: EICAR, a reboot, room for updates
     VM-->>Runner: results and evidence
     Runner->>Runner: test_results_report: verdict, HTML, JSON, JUnit
@@ -237,15 +245,17 @@ sequenceDiagram
     Runner->>Azure: terraform destroy (end-to-end runs)
 ```
 
-The stack builds RHEL 9 today. RHEL 8 is one more VM in the same apply, with a newer Python pushed
-for current Ansible, which [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python)
-does from pushed files. RHEL 7 is more work: the roles support EL 8 and later, and ansible-core 2.17
-and later cannot manage RHEL 7's Python.
+The stack builds RHEL 7, 8 and 9 in the same apply, or the releases you choose
+(`just deploy-offline dev latest true 9` for RHEL 9 alone). The live runs so far are of RHEL 9; RHEL
+7 and 8 are tested in containers (the Python bootstrap, the package install and removal with no
+repository, the readiness checks), and need a pipeline run to prove the service, the protection and
+the reboot.
 
 | Step | What happens |
 |---|---|
-| Download | [`libre_devops.rpm_repo_download`](https://github.com/libre-devops/ansible-role-rpm-repo-download) runs on the runner, which has the internet, and fetches `mdatp` from `packages.microsoft.com/rhel/9/prod`: the workflow's `mde_version`, or the newest. It checks the repository's signature against Microsoft's keys and every checksum on the way down. |
+| Download | [`libre_devops.rpm_repo_download`](https://github.com/libre-devops/ansible-role-rpm-repo-download) runs on the runner, which has the internet, and fetches `mdatp` for each release from `packages.microsoft.com/rhel/<release>/prod`: the workflow's `mde_version`, or the newest. It checks the repository's signature against Microsoft's keys and every checksum on the way down. |
 | Open | The bastion-session module creates a Standard bastion for the apply and fetches the admin account's vaulted SSH key. Entra ID sign-in would need the VM to reach Entra ID, which it cannot. |
+| Python | [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python) pushes a python-build-standalone build to RHEL 7 and 8, then gathers facts with it. |
 | Install | [`libre_devops.standalone_package_installer`](https://github.com/libre-devops/ansible-role-standalone-package-installer) pushes the RPM through the bastion and installs it from the file alone, with every repository disabled, after checking its signature. [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux) then starts and configures the agent with `mde_linux_manage_repository: false`, and does not call the package manager, which would fail on the unreachable repositories. |
 | Test | [`libre_devops.mde_linux_checks`](https://github.com/libre-devops/ansible-role-mde-linux-checks) tests the release with `mde_linux_checks_online: false`: the package's signature and dependencies, the service, real-time protection and the EICAR test file, the event provider, SELinux, room for the next update, a reboot. [`libre_devops.test_results_report`](https://github.com/libre-devops/ansible-role-test-results-report) writes the report on the runner and fails the apply if a check that counts failed. `real_time_protection`, `eicar_detection` and `service_survives_reboot` must run. |
 | Close | The bastion and its public IP go once the tests have finished; the deploy workflow's always() step and an hourly sweeper catch anything a failed run leaves, as for the mde-linux stack. |

@@ -28,7 +28,7 @@
         <mxCell id="c9" value="&lt;b&gt;Download&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
           <mxGeometry x="56" y="45" width="160" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c10" value="The runner fetches the RPM from packages.microsoft.com and checks the repository's signature and every checksum." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+        <mxCell id="c10" value="The runner fetches each release's RPM from packages.microsoft.com and checks the repository's signature and every checksum." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
           <mxGeometry x="20" y="100" width="196" height="150" as="geometry" />
         </mxCell>
         <mxCell id="c11" value="rpm_repo_download" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
@@ -70,10 +70,10 @@
         <mxCell id="c23" value="&lt;b&gt;Install&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
           <mxGeometry x="722" y="45" width="160" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c24" value="The RPM is pushed through the bastion and installed from the file alone, its signature checked." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+        <mxCell id="c24" value="A Python Ansible can use goes to RHEL 7 and 8; the RPM is pushed through the bastion and installed from the file alone, its signature checked." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
           <mxGeometry x="686" y="100" width="196" height="150" as="geometry" />
         </mxCell>
-        <mxCell id="c25" value="standalone_package_installer&lt;br&gt;mde_linux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
+        <mxCell id="c25" value="python, standalone_package_&lt;br&gt;installer, mde_linux" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c7" vertex="1">
           <mxGeometry x="686" y="262" width="196" height="50" as="geometry" />
         </mxCell>
         <mxCell id="c26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c18" target="c22">
@@ -127,13 +127,13 @@
         <mxCell id="c42" value="Test VMs, one per RHEL release" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6c8ebf;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=11;container=1;collapsible=0;arcSize=3;" parent="c7" vertex="1">
           <mxGeometry x="466" y="335" width="196" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="c43" value="&lt;b&gt;RHEL 9&lt;/b&gt;&lt;br&gt;today" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+        <mxCell id="c43" value="RHEL 7" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
           <mxGeometry x="14" y="30" width="40" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c44" value="RHEL 8&lt;br&gt;next" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+        <mxCell id="c44" value="RHEL 8" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
           <mxGeometry x="76" y="30" width="40" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c45" value="RHEL 7&lt;br&gt;later" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
+        <mxCell id="c45" value="RHEL 9" style="image;aspect=fixed;html=1;points=[];fontSize=10;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=60;" parent="c42" vertex="1">
           <mxGeometry x="138" y="30" width="40" height="40" as="geometry" />
         </mxCell>
         <mxCell id="c46" value="&lt;i&gt;Roles in purple are libre_devops Ansible roles, run from Terraform through the bastion.&lt;/i&gt;" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="c7" vertex="1">
@@ -171,7 +171,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="c56" value="&lt;b&gt;The matrix&lt;/b&gt;&lt;br&gt;The stack builds RHEL 9 today. RHEL 8 is one more VM in the same apply, with a newer Python pushed for current Ansible (libre_devops.python does that). RHEL 7 is more work: the roles start at EL 8, and ansible-core 2.17 and later cannot manage its Python." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
+        <mxCell id="c56" value="&lt;b&gt;The matrix&lt;/b&gt;&lt;br&gt;One VM per release in rhel_releases (7, 8 and 9 by default), in the same apply and the same report. RHEL 7 and 8 get a newer Python pushed (libre_devops.python); RHEL 7 installs with yum. Run live so far: RHEL 9; RHEL 7 and 8 are tested in containers." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
           <mxGeometry x="1190" y="960" width="420" height="110" as="geometry" />
         </mxCell>
         <mxCell id="c57" value="&lt;b&gt;Measured&lt;/b&gt; (16 November 2026, RHEL 9.8, mdatp 101.26101.0000): 44 checks passed, 11 skipped with reasons; EICAR detected in 0.4 s; back 70 s after a reboot." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;size=14;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=left;verticalAlign=top;spacing=8;" parent="1" vertex="1">
@@ -194,7 +194,7 @@
         <mxCell id="c4" value="Internet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=13;container=1;collapsible=0;arcSize=3;dashed=1;dashPattern=8 4;" parent="1" vertex="1">
           <mxGeometry x="40" y="140" width="340" height="120" as="geometry" />
         </mxCell>
-        <mxCell id="c5" value="&lt;b&gt;packages.microsoft.com&lt;/b&gt;&lt;br&gt;rhel/9/prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c4" vertex="1">
+        <mxCell id="c5" value="&lt;b&gt;packages.microsoft.com&lt;/b&gt;&lt;br&gt;rhel/7, 8 and 9/prod" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="c4" vertex="1">
           <mxGeometry x="20" y="40" width="300" height="60" as="geometry" />
         </mxCell>
         <mxCell id="c6" value="GitHub Actions runner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">
@@ -257,7 +257,7 @@
         <mxCell id="c25" value="&lt;b&gt;NSG&lt;/b&gt;: SSH 22 from the bastion subnet only" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/networking/Network_Security_Groups.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=250;" parent="c24" vertex="1">
           <mxGeometry x="20" y="40" width="40" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c26" value="&lt;b&gt;RHEL 9 VM&lt;/b&gt;&lt;br&gt;no public IP, no NAT,&lt;br&gt;no default outbound access" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=200;" parent="c24" vertex="1">
+        <mxCell id="c26" value="&lt;b&gt;RHEL 7, 8 and 9 VMs&lt;/b&gt;&lt;br&gt;no public IP, no NAT,&lt;br&gt;no default outbound access" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/compute/Virtual_Machine.svg;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;whiteSpace=wrap;labelWidth=200;" parent="c24" vertex="1">
           <mxGeometry x="110" y="100" width="60" height="60" as="geometry" />
         </mxCell>
         <mxCell id="c27" value="Defender for Endpoint, installed and tested" style="image;aspect=fixed;html=1;points=[];fontSize=11;image=img/lib/azure2/security/Azure_Defender.svg;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;spacingLeft=8;whiteSpace=wrap;labelWidth=240;" parent="c24" vertex="1">
@@ -322,7 +322,7 @@
         <mxCell id="c5" value="&lt;b&gt;Infrastructure&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
           <mxGeometry x="76" y="145" width="200" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c6" value="VNet, subnets, NSG, Key Vault, the ephemeral SSH key, the RHEL 9 VM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+        <mxCell id="c6" value="VNet, subnets, NSG, Key Vault, the ephemeral SSH key, a VM per RHEL release" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#666666;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
           <mxGeometry x="40" y="200" width="236" height="110" as="geometry" />
         </mxCell>
         <mxCell id="c7" value="&lt;font face='monospace'&gt;linux-vm, network, nsg, keyvault, ssh-key&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
@@ -373,7 +373,7 @@
         <mxCell id="c22" value="&lt;b&gt;Install and test&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
           <mxGeometry x="862" y="145" width="200" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="c23" value="standalone_package_installer, mde_linux, mde_linux_checks (reboot included), test_results_report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
+        <mxCell id="c23" value="python, standalone_package_installer, mde_linux, mde_linux_checks (reboot included), test_results_report" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9673a6;fontSize=12;align=left;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
           <mxGeometry x="826" y="200" width="236" height="110" as="geometry" />
         </mxCell>
         <mxCell id="c24" value="&lt;font face='monospace'&gt;module.mde: one ansible_playbook per VM&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;align=center;verticalAlign=middle;spacing=6;arcSize=12;" parent="1" vertex="1">
@@ -421,7 +421,7 @@
         <mxCell id="c38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endFill=1;strokeColor=#1E3A8A;strokeWidth=2;fontSize=11;labelBackgroundColor=#FFFFFF;" parent="1" edge="1" source="c28" target="c34">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="c39" value="Times from pipeline run 43787619871 (UK South, 16 November 2026)." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="1" vertex="1">
+        <mxCell id="c39" value="Times from pipeline run 43787619871 (UK South, 16 November 2026), RHEL 9 alone." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#333333;" parent="1" vertex="1">
           <mxGeometry x="40" y="440" width="600" height="30" as="geometry" />
         </mxCell>
         <mxCell id="c40" value="If something fails part way" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF5F5;strokeColor=#b85450;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontSize=14;container=1;collapsible=0;arcSize=3;" parent="1" vertex="1">

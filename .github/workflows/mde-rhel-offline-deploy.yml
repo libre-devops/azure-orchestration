@@ -1,11 +1,13 @@
 name: MDE RHEL offline VM - deploy
 
-# Builds or updates the RHEL 9 VM in stacks/mde-rhel-offline, which has no route to the internet, and
-# installs Defender for Endpoint on it, in ONE apply with configure=true:
+# Builds or updates the RHEL VMs in stacks/mde-rhel-offline, one per release in rhel_releases (7, 8
+# and 9 by default), which have no route to the internet, and installs Defender for Endpoint on
+# them, in ONE apply with configure=true:
 #
-#   download  libre_devops.rpm_repo_download fetches the mdatp RPM on the runner, which has the
-#             internet, checking the repository's signature and every checksum
+#   download  libre_devops.rpm_repo_download fetches each release's mdatp RPM on the runner, which
+#             has the internet, checking the repository's signature and every checksum
 #   open      the bastion-session module creates an Azure Bastion and fetches the vaulted SSH key
+#   python    libre_devops.python pushes a Python current ansible-core can use to RHEL 7 and 8
 #   install   libre_devops.standalone_package_installer pushes the RPM through it and installs it
 #             from the file alone, then libre_devops.mde_linux starts the agent
 #   test      libre_devops.mde_linux_checks tests the release and libre_devops.test_results_report
@@ -29,6 +31,10 @@ on:
         description: The mdatp version to install, such as 101.26101.0000, or latest.
         type: string
         default: latest
+      rhel_releases:
+        description: The RHEL releases to test, one VM each, comma-separated (any of 7, 8 and 9).
+        type: string
+        default: 7,8,9
       destroy_after:
         description: Destroy the whole stack after the run (an end-to-end test).
         type: boolean
@@ -76,6 +82,14 @@ jobs:
       # terraform-ansible-role runs ansible-playbook on the runner, and installs the roles itself.
       - name: Install Ansible
         run: pipx install ansible-core
+
+      # The stack's rhel_releases list: 7,8,9 becomes ["7","8","9"], and anything else stops here.
+      - name: Choose the RHEL releases
+        env:
+          RELEASES: ${{ inputs.rhel_releases }}
+        run: |
+          list=$(python3 -c 'import json, os; r = [x.strip() for x in os.environ["RELEASES"].split(",") if x.strip()]; assert r and set(r) <= {"7", "8", "9"}, "rhel_releases: any of 7, 8 and 9"; print(json.dumps(sorted(set(r))))')
+          echo "TF_VAR_rhel_releases=${list}" >>"${GITHUB_ENV}"
 
       # Recorded in the test report, so it says which run produced it.
       - name: Note the run in the test report

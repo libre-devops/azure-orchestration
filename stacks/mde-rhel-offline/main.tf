@@ -1,22 +1,24 @@
-# Microsoft Defender for Endpoint on a RHEL 9 VM with no route to the internet, installed and
-# tested from Terraform in one apply. Nothing reaches the VM except SSH from the bastion subnet, and
-# the VM reaches nothing: no public IP, no NAT gateway, and the network module's subnets have no
-# default outbound access. With configure = true:
+# Microsoft Defender for Endpoint on RHEL VMs with no route to the internet, one VM for each release
+# in rhel_releases (7, 8 and 9 by default), installed and tested from Terraform in one apply. Nothing
+# reaches the VMs except SSH from the bastion subnet, and they reach nothing: no public IP, no NAT
+# gateway, and the network module's subnets have no default outbound access. With configure = true:
 #
 #   1. download  libre_devops.rpm_repo_download, on the machine running Terraform (which has the
-#                internet), fetches the mdatp RPM from packages.microsoft.com, checking the
-#                repository's signature and every checksum on the way
+#                internet), fetches each release's mdatp RPM from packages.microsoft.com, checking
+#                the repository's signature and every checksum on the way
 #   2. open      the bastion-session module creates an Azure Bastion for the apply and fetches the
 #                admin account's vaulted SSH key (Entra ID sign-in would need the VM to reach Entra)
-#   3. install   libre_devops.standalone_package_installer pushes the RPM through the bastion and
+#   3. python    libre_devops.python pushes a python-build-standalone build to RHEL 7 and 8, whose
+#                own Pythons (2.7 and 3.6) current ansible-core cannot use; RHEL 9's 3.9 is kept
+#   4. install   libre_devops.standalone_package_installer pushes the RPM through the bastion and
 #                installs it from the file alone, its signature checked against Microsoft's keys,
 #                then libre_devops.mde_linux starts the agent with real-time protection on,
 #                without Microsoft's repository
-#   4. test      libre_devops.mde_linux_checks tests the release the way an offline host can
+#   5. test      libre_devops.mde_linux_checks tests the release the way an offline host can
 #                (protection, the EICAR test, stability, a reboot, the system) and
 #                libre_devops.test_results_report writes the report on the machine running
-#                Terraform, failing the apply if the release fails
-#   5. close     the bastion is deleted once the install and the tests have finished
+#                Terraform, one report for every release, failing the apply if the release fails
+#   6. close     the bastion is deleted once the install and the tests have finished
 #
 # Onboarding needs the Defender cloud, so the agent is installed and started but not onboarded: the
 # stack proves a release installs, protects and survives a reboot on a machine that cannot reach
@@ -30,10 +32,19 @@ locals {
   vnet_name    = "vnet-mdo-${local.suffix}"
   nsg_name     = "nsg-mdo-${local.suffix}"
   bas_name     = "bas-mdo-${local.suffix}"
-  vm_name      = "vm-mdo-${local.suffix}"
   kv_name      = "kv-mdo-${local.suffix}"
   ssh_key_name = "ssh-mdo-${local.suffix}"
   subnet_vm    = "snet-vm-${local.vnet_name}"
+
+  # One VM per RHEL release. RHEL 7 is not on Azure's Trusted Launch list (8.6 and later are), so
+  # its VM boots without secure boot and vTPM; its image, 7.9 from March 2023, is the last.
+  releases = {
+    for r in var.rhel_releases : r => {
+      vm_name = "vm-mdo-rhel${r}-${local.suffix}"
+      sku     = { "7" = "7lvm-gen2", "8" = "8-lvm-gen2", "9" = "9-lvm-gen2" }[r]
+      trusted = r != "7"
+    }
+  }
 
   vm_subnet_prefix      = "10.30.1.0/24"
   bastion_subnet_prefix = "10.30.0.0/26"
@@ -209,8 +220,8 @@ module "ssh_key" {
   }
 }
 
-# The RHEL 9 VM. Its Red Hat repositories (RHUI) are out of reach too, so everything it gets comes
-# through the bastion.
+# The RHEL VMs. Their Red Hat repositories (RHUI) are out of reach too, so everything they get
+# comes through the bastion.
 module "linux_vm" {
   source  = "libre-devops/linux-vm/azurerm"
   version = "~> 4.1"
@@ -220,11 +231,13 @@ module "linux_vm" {
   tags              = module.tags.tags
 
   linux_virtual_machines = {
-    (local.vm_name) = {
-      size                = var.vm_size
-      admin_username      = "azureuser"
-      source_image_simple = "RHEL9"
-      subnet_id           = module.network.subnet_ids[local.subnet_vm]
+    for r, rel in local.releases : rel.vm_name => {
+      size                   = var.vm_size
+      admin_username         = "azureuser"
+      source_image_reference = { publisher = "RedHat", offer = "RHEL", sku = rel.sku }
+      secure_boot_enabled    = rel.trusted
+      vtpm_enabled           = rel.trusted
+      subnet_id              = module.network.subnet_ids[local.subnet_vm]
       admin_ssh_keys = [{
         public_key = module.ssh_key.public_keys_openssh[local.ssh_key_name]
       }]
@@ -251,7 +264,7 @@ module "download" {
   }
 
   vars = {
-    rpm_repo_download_repositories = [{ path = "rhel/9/prod", label = "rhel9" }]
+    rpm_repo_download_repositories = [for r in var.rhel_releases : { path = "rhel/${r}/prod", label = "rhel${r}" }]
     rpm_repo_download_packages     = ["mdatp"]
     rpm_repo_download_version      = var.mde_version
     rpm_repo_download_dest         = local.packages_dir
@@ -281,23 +294,25 @@ module "bastion_session" {
   }
 
   targets = {
-    (local.vm_name) = {
-      id                = module.linux_vm.ids[local.vm_name]
-      groups            = ["rhel9"]
+    for r, rel in local.releases : rel.vm_name => {
+      id                = module.linux_vm.ids[rel.vm_name]
+      groups            = ["rhel${r}"]
       user              = "azureuser"
       ssh_key_secret_id = module.ssh_key.private_key_secret_versionless_ids[local.ssh_key_name]
-      triggers          = { vm_id = module.linux_vm.ids[local.vm_name] }
+      triggers          = { vm_id = module.linux_vm.ids[rel.vm_name] }
     }
   }
 
   close_after = [module.mde[*].run_ids]
 }
 
-# 3 and 4. The install and the tests, through the session: the RPM from the file alone (no
-# repositories, so no dependency can come from anywhere else), its signature checked against
-# Microsoft's keys, which libre_devops.mde_linux ships; then the agent started with real-time
-# protection on and not onboarded; then the checks, offline, and the report, which fails the apply
-# if a check that counts failed. The report and the evidence stay in local.test_results_dir.
+# 3, 4 and 5. Python, the install and the tests, through the session, one ansible-playbook per VM
+# in parallel: a Python ansible-core can use (pushed to RHEL 7 and 8; facts are gathered once it is
+# there); the release's RPM from the file alone (no repositories, so no dependency can come from
+# anywhere else), its signature checked against Microsoft's keys, which libre_devops.mde_linux
+# ships; then the agent started with real-time protection on and not onboarded; then the checks,
+# offline, and the report. Each VM's run adds its results to the one report in
+# local.test_results_dir, which fails the apply if a check that counts failed.
 module "mde" {
   # Pinned to the GitHub tag until the module is published on the Terraform Registry.
   source = "git::https://github.com/libre-devops/terraform-ansible-role.git?ref=4.0.0"
@@ -305,15 +320,29 @@ module "mde" {
 
   name = "mde-rhel-offline"
   roles = [
-    { name = "libre_devops.standalone_package_installer", version = "1.0.0" },
-    { name = "libre_devops.mde_linux", version = "1.1.1" },
-    { name = "libre_devops.mde_linux_checks", version = "1.0.1" },
+    { name = "libre_devops.python", version = "1.0.0" },
+    { name = "libre_devops.standalone_package_installer", version = "1.1.0" },
+    { name = "libre_devops.mde_linux", version = "1.2.0" },
+    { name = "libre_devops.mde_linux_checks", version = "1.1.0" },
     { name = "libre_devops.test_results_report", version = "1.0.0" },
   ]
-  hosts = module.bastion_session.ansible_hosts
+  hosts        = module.bastion_session.ansible_hosts
+  gather_facts = false
+
+  # Each VM installs its own release's RPM, and is labelled by release in the report.
+  host_vars = {
+    for r, rel in local.releases : rel.vm_name => {
+      standalone_package_installer_files = ["${local.packages_dir}/rhel${r}/mdatp-*.rpm"]
+      test_results_report_host_label     = "rhel${r}-offline"
+    }
+  }
 
   vars = {
-    standalone_package_installer_files     = ["${local.packages_dir}/rhel9/mdatp-*.rpm"]
+    # The archive comes down to the machine running Terraform, is checked, and is pushed.
+    python_bootstrap_source           = "archive"
+    python_bootstrap_archive          = var.python_archive.url
+    python_bootstrap_archive_checksum = var.python_archive.checksum
+
     standalone_package_installer_use_repos = false
     standalone_package_installer_gpg_keys = [
       "{{ playbook_dir }}/roles/libre_devops.mde_linux/files/microsoft.asc",
@@ -334,8 +363,7 @@ module "mde" {
     mde_linux_checks_expected_version   = var.mde_version == "latest" ? "" : var.mde_version
     mde_linux_checks_evidence_dir       = "${local.test_results_dir}/evidence"
     test_results_report_dir             = local.test_results_dir
-    test_results_report_title           = "mdatp ${var.mde_version} on RHEL 9 with no internet"
-    test_results_report_host_label      = "rhel9-offline"
+    test_results_report_title           = "mdatp ${var.mde_version} on RHEL ${join(", ", var.rhel_releases)} with no internet"
     test_results_report_expected_checks = ["real_time_protection", "eicar_detection", "service_survives_reboot"]
     test_results_report_properties = {
       stack     = "mde-rhel-offline"
