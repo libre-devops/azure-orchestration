@@ -104,11 +104,13 @@ variable "run_url" {
 variable "vm_sizes" {
   description = <<DESC
 Sizes for particular RHEL releases, overriding vm_size. RHEL 7's image boots from SCSI only, and the
-v6 sizes (such as vm_size's Standard_D2lds_v6) have NVMe disk controllers only, so RHEL 7 gets a v5
-size, which has SCSI. Azure refuses the mismatch when it creates the VM, not at plan.
+v6 sizes (such as vm_size's Standard_D2lds_v6) have NVMe disk controllers only, so RHEL 7 gets a v4
+size, which has SCSI (v5 has too, but this subscription has no v5 quota in UK South). Azure refuses
+a mismatch, or a family without quota, when it creates the VM, not at plan: check both with
+az vm list-skus and az vm list-usage before changing these.
 DESC
   type        = map(string)
-  default     = { "7" = "Standard_D2lds_v5" }
+  default     = { "7" = "Standard_D2s_v4" }
 }
 
 variable "vm_size" {
