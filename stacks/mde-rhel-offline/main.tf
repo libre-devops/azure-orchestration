@@ -48,6 +48,27 @@ locals {
     }
   }
 
+  # Time from the Azure host, as Microsoft recommends for Azure VMs
+  # (https://learn.microsoft.com/azure/virtual-machines/linux/time-sync): chrony on the Hyper-V PTP
+  # clock, which needs no network. The RHEL 7 and 8 images only try internet NTP servers, so with no
+  # route out they never synchronise (mde_linux_checks' time_synchronised failed on both, run
+  # 43882264772); RHEL 9's image already uses the host. The udev rule gives the clock a stable name,
+  # which older systemd (RHEL 7's 219, RHEL 8's 239) does not.
+  chrony_cloud_init = <<-EOT
+    #cloud-config
+    write_files:
+      - path: /etc/udev/rules.d/99-ptp_hyperv.rules
+        permissions: "0644"
+        content: |
+          ACTION!="add", GOTO="ptp_hyperv"
+          SUBSYSTEM=="ptp", ATTR{clock_name}=="hyperv", SYMLINK += "ptp_hyperv"
+          LABEL="ptp_hyperv"
+    runcmd:
+      - udevadm control --reload
+      - udevadm trigger --subsystem-match=ptp --action=add
+      - "if [ -f /etc/chrony.conf ] && ! grep -q '^refclock PHC' /etc/chrony.conf; then echo 'refclock PHC /dev/ptp_hyperv poll 3 dpoll -2 offset 0 stratum 2' >> /etc/chrony.conf && systemctl restart chronyd; fi"
+  EOT
+
   vm_subnet_prefix      = "10.30.1.0/24"
   bastion_subnet_prefix = "10.30.0.0/26"
 
@@ -224,6 +245,7 @@ module "linux_vm" {
       source_image_reference = { publisher = "RedHat", offer = "RHEL", sku = rel.sku }
       secure_boot_enabled    = rel.trusted
       vtpm_enabled           = rel.trusted
+      cloud_init             = local.chrony_cloud_init
       subnet_id              = module.network.subnet_ids[local.subnet_vm]
       admin_ssh_keys = [{
         public_key = module.ssh_key.public_keys_openssh[local.ssh_key_name]
