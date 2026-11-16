@@ -7,6 +7,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 4.23.0, < 5.0.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = ">= 0.12.0, < 1.0.0"
+    }
     tls = {
       source  = "hashicorp/tls"
       version = ">= 4.1.0, < 5.0.0"

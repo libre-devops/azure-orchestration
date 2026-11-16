@@ -93,15 +93,14 @@ access mid-apply (a closing apply that removed the rule had its later secret upd
 a live run). The dance removes the rule after each step. Purge protection is off, so a destroy frees the
 vault's globally unique name (Trivy reports AZU-0016 as MEDIUM, by design).
 
-**Access policies are a deliberate exception.** Prefer Azure RBAC on Key Vault wherever you can: it is
-the keyvault module's default and Microsoft's recommendation, and access policies sit outside RBAC's
-audit, PIM and conditions. These stacks use access policies for one reason. The ssh-key module writes
-the key in the same apply that creates the vault, and a new Key Vault role assignment can take up to
-ten minutes to apply, so with RBAC a first apply can fail with 403 Forbidden on the write. Each stack's
-`main.tf` has the RBAC way commented out after the vault, ready to use: the
-[role-assignment](https://github.com/libre-devops/terraform-azurerm-role-assignment) module granting
-the deploying identity Key Vault Secrets Officer (Key Vault Secrets User for anyone who only reads
-the key), and a `time_sleep` that holds the key's write until the grant applies.
+**Azure RBAC, not access policies.** The vault uses Azure RBAC, the keyvault module's default and
+Microsoft's recommendation. The [role-assignment](https://github.com/libre-devops/terraform-azurerm-role-assignment)
+module grants the identity running Terraform Key Vault Secrets Officer on that vault alone (a
+commented example adds Key Vault Secrets User for anyone who only reads the key). The ssh-key module
+writes the key in the same apply that creates the vault, and a new role assignment takes a while to
+reach Key Vault's data plane, so a `time_sleep` holds the write for three minutes on the first apply.
+The identity running Terraform needs rights to create role assignments (Owner, User Access
+Administrator or Role Based Access Control Administrator).
 
 ### What a run costs in time
 
@@ -128,7 +127,7 @@ time. An apply with `configure = false` takes as long as the infrastructure chan
 | [vm-entra-login](https://github.com/libre-devops/terraform-azurerm-vm-entra-login) | Entra ID SSH on the VM (sourced from its GitHub tag until it is published on the Terraform Registry). |
 | [bastion-session](https://github.com/libre-devops/terraform-azurerm-bastion-session) | The bastion, its public IP and the sign-in role for the length of the apply, and the SSH connections through them (from the Terraform Registry). |
 | [terraform-ansible-role](https://github.com/libre-devops/terraform-ansible-role) | Runs each Ansible role from Terraform, through the session (sourced from its GitHub tag). |
-| [keyvault](https://github.com/libre-devops/terraform-azurerm-keyvault), [ssh-key](https://github.com/libre-devops/terraform-azurerm-ssh-key) | The deny-by-default vault and the ephemerally generated admin key pair. |
+| [keyvault](https://github.com/libre-devops/terraform-azurerm-keyvault), [role-assignment](https://github.com/libre-devops/terraform-azurerm-role-assignment), [ssh-key](https://github.com/libre-devops/terraform-azurerm-ssh-key) | The deny-by-default vault with Azure RBAC, the deployer's Key Vault Secrets Officer on it, and the ephemerally generated admin key pair. |
 | [LibreDevOpsHelpers](https://www.powershellgallery.com/packages/LibreDevOpsHelpers) | The runner's egress IP, and the key vault firewall dance for the `key` sign-in outside the pipeline. |
 | [`libre_devops.python`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/python/documentation/) | Python on the VM, so the next role can gather facts on any image. |
 | [`libre_devops.mde_linux`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/mde_linux/documentation/) | Defender for Endpoint: repository, package, onboarding and health checks. |
