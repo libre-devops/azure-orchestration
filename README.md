@@ -246,15 +246,15 @@ sequenceDiagram
 ```
 
 The stack builds RHEL 7, 8 and 9 in the same apply, or the releases you choose
-(`just deploy-offline dev latest true 9` for RHEL 9 alone). On 16 November 2026 (runs 43882264772
-and 43891024049, `mdatp` 101.26101.0000) Defender installed, protected and came back after a reboot
-on all three: EICAR was detected in about 0.4 s on each, with the eBPF event provider on each.
+(`just deploy-offline dev latest true 9` for RHEL 9 alone).
 
-The runs also found that the RHEL 7.9 and 8.10 images never synchronise their clocks with no route
-out, because their chrony tries internet NTP servers only. The stack now points chrony at the Azure
-host's PTP clock, as Microsoft recommends, and all three synchronise. One RHEL 8 reboot check failed
-because the post-reboot probe came 22 s after boot, before real-time protection had finished
-starting: a timing gap in the check, not in Defender.
+What the runs on 16 November 2026 found on the way:
+- the RHEL 7 image boots from SCSI only, so it needs a v4 size (`vm_sizes`);
+- the RHEL 7.9 and 8.10 images never synchronise their clocks with no route out, because their chrony
+  tries internet NTP servers only. The stack now points chrony at the Azure host's PTP clock, as
+  Microsoft recommends;
+- on a fast-booting host (RHEL 8, probed 22 s after boot) the post-reboot check read real-time
+  protection while it was still starting. `mde_linux_checks` 1.1.1 waits for it.
 
 | Step | What happens |
 |---|---|
@@ -282,13 +282,13 @@ The report is in the job summary and in the `test-results-<workspace>` artifact,
 evidence. A local apply leaves it in `stacks/mde-rhel-offline/.terraform/test-results/<plan time>/`
 (the `test_results_directory` output).
 
-A pipeline run with the tests (UK South, `mdatp` 101.26101.0000, 16 November 2026, [run 43787619871](https://github.com/libre-devops/azure-orchestration/actions/runs/43787619871)) took:
-- 8s to download;
-- 11m 38s to open the session;
-- 5m 0s to push the 157 MB RPM through the bastion, install the agent and run the checks, a reboot included;
-- 8m 1s to close it, all in one apply, then 3m 57s to destroy the stack.
+The run on RHEL 7, 8 and 9 (UK South, `mdatp` 101.26101.0000, 16 November 2026, [run 43958570981](https://github.com/libre-devops/azure-orchestration/actions/runs/43958570981)) passed, and took 43 minutes end to end:
+- 20 s to download the three RPMs;
+- 11m 48s to open the session;
+- 7m 44s to install and test, the three VMs in parallel (RHEL 8 5m 17s, RHEL 9 6m 34s, RHEL 7 7m 44s): a Python pushed to RHEL 7 and 8, the RPM pushed through the bastion, the agent installed and the checks run, a reboot included;
+- 8m 1s to close it, all in one 38m 29s apply, then 4m 26s to destroy the stack.
 
-44 checks passed and 11 were skipped, each with its reason. EICAR was detected in 0.4 s, and the VM was back 70 s after its reboot.
+On each release 44 checks passed and 11 were skipped, each with its reason. EICAR was detected in 0.39 to 0.42 s. After the reboot the VMs answered in 53 s (RHEL 8) to 183 s (RHEL 7), and real-time protection was up 6.2 s later on RHEL 8, at once on the others.
 
 Deploy with the `MDE RHEL offline VM - deploy` workflow (`just deploy-offline dev`, or
 `just deploy-offline dev 101.26101.0000 true` for a version and a teardown at the end), and destroy
