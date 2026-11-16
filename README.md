@@ -246,10 +246,15 @@ sequenceDiagram
 ```
 
 The stack builds RHEL 7, 8 and 9 in the same apply, or the releases you choose
-(`just deploy-offline dev latest true 9` for RHEL 9 alone). The live runs so far are of RHEL 9; RHEL
-7 and 8 are tested in containers (the Python bootstrap, the package install and removal with no
-repository, the readiness checks), and need a pipeline run to prove the service, the protection and
-the reboot.
+(`just deploy-offline dev latest true 9` for RHEL 9 alone). On 16 November 2026 (runs 43882264772
+and 43891024049, `mdatp` 101.26101.0000) Defender installed, protected and came back after a reboot
+on all three: EICAR was detected in about 0.4 s on each, with the eBPF event provider on each.
+
+The runs also found that the RHEL 7.9 and 8.10 images never synchronise their clocks with no route
+out, because their chrony tries internet NTP servers only. The stack now points chrony at the Azure
+host's PTP clock, as Microsoft recommends, and all three synchronise. One RHEL 8 reboot check failed
+because the post-reboot probe came 22 s after boot, before real-time protection had finished
+starting: a timing gap in the check, not in Defender.
 
 | Step | What happens |
 |---|---|
