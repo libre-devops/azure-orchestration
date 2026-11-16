@@ -194,9 +194,13 @@ The report is in the job summary and in the `test-results-<workspace>` artifact,
 evidence. A local apply leaves it in `stacks/mde-rhel-offline/.terraform/test-results/<plan time>/`
 (the `test_results_directory` output).
 
-On the first pipeline run (UK South, `mdatp` 101.26101.0000) the download took 14s, opening the
-session 11m 47s, pushing the 157 MB RPM through the bastion and installing and starting the agent
-2m 41s, and closing it 8m 2s, all in one apply.
+A pipeline run with the tests (UK South, `mdatp` 101.26101.0000, 16 November 2026, [run 43787619871](https://github.com/libre-devops/azure-orchestration/actions/runs/43787619871)) took:
+- 8s to download;
+- 11m 38s to open the session;
+- 5m 0s to push the 157 MB RPM through the bastion, install the agent and run the checks, a reboot included;
+- 8m 1s to close it, all in one apply, then 3m 57s to destroy the stack.
+
+44 checks passed and 11 were skipped, each with its reason. EICAR was detected in 0.4 s, and the VM was back 70 s after its reboot.
 
 Deploy with the `MDE RHEL offline VM - deploy` workflow (`just deploy-offline dev`, or
 `just deploy-offline dev 101.26101.0000 true` for a version and a teardown at the end), and destroy
