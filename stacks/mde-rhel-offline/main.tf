@@ -329,11 +329,11 @@ module "mde" {
 
   name = "mde-rhel-offline"
   roles = [
-    { name = "libre_devops.python", version = "1.0.0" },
+    { name = "libre_devops.python", version = "1.1.0" },
     { name = "libre_devops.standalone_package_installer", version = "1.1.0" },
     { name = "libre_devops.mde_linux", version = "1.2.0" },
-    { name = "libre_devops.mde_linux_checks", version = "1.1.0" },
-    { name = "libre_devops.test_results_report", version = "1.0.0" },
+    { name = "libre_devops.mde_linux_checks", version = "1.1.1" },
+    { name = "libre_devops.test_results_report", version = "1.0.1" },
   ]
   hosts        = module.bastion_session.ansible_hosts
   gather_facts = false
