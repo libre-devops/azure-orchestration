@@ -116,8 +116,9 @@ module "nsg" {
 
 # The vault for the admin account's SSH private key, as in the mde-linux stack: deny by default,
 # with the machine running Terraform let in through key_vault_ip_rules for the length of the run
-# (which is also what lets the bastion session fetch the key). Access policies, so the deployer can
-# write the key the moment the vault exists; purge protection off so a destroy frees the name.
+# (which is also what lets the bastion session fetch the key). Access policies, as a documented exception
+# (see the note after this block), so the deployer can write the key the moment the vault exists; purge
+# protection off so a destroy frees the name.
 module "keyvault" {
   source  = "libre-devops/keyvault/azurerm"
   version = "~> 4.0"
@@ -145,6 +146,50 @@ module "keyvault" {
     }
   }
 }
+
+# ACCESS POLICIES ARE THE EXCEPTION HERE, NOT THE PATTERN. Prefer Azure RBAC on Key Vault (the keyvault
+# module's default, rbac_authorization_enabled = true) wherever you can: access policies are Key Vault's
+# legacy model, sit outside Azure RBAC's audit, PIM and conditions, and Microsoft recommends RBAC.
+#
+# They are used here for one reason: the ssh-key module writes the key in the same apply that creates the
+# vault, and a new role assignment can take up to ten minutes to apply on Key Vault's data plane, so with
+# RBAC the first apply can fail with 403 Forbidden on the secret write. To use RBAC instead:
+#   1. in module "keyvault" above, set rbac_authorization_enabled = true and remove access_policies;
+#   2. uncomment the block below (it needs hashicorp/time in terraform.tf, ">= 0.12.0, < 1.0.0");
+#   3. add depends_on = [time_sleep.keyvault_rbac] to module "ssh_key".
+# The identity running Terraform then needs rights to create role assignments on the vault (Owner, User
+# Access Administrator or Role Based Access Control Administrator), which access policies do not.
+#
+# module "keyvault_rbac" {
+#   source  = "libre-devops/role-assignment/azurerm"
+#   version = "~> 4.1"
+#
+#   role_assignments = {
+#     # The identity running Terraform writes the key (ssh-key module) and reads it back for the
+#     # bastion session: Key Vault Secrets Officer covers both, and nothing beyond secrets.
+#     deployer = {
+#       scope         = module.keyvault.ids[local.kv_name]
+#       principal_ids = [data.azurerm_client_config.current.object_id]
+#       role_names    = ["Key Vault Secrets Officer"]
+#       description   = "Terraform writes and reads the admin SSH key"
+#     }
+#
+#     # Anyone who only needs to read the key, such as an operator or another pipeline: Key Vault
+#     # Secrets User reads secrets and nothing else.
+#     # readers = {
+#     #   scope         = module.keyvault.ids[local.kv_name]
+#     #   principal_ids = ["00000000-0000-0000-0000-000000000000"]
+#     #   role_names    = ["Key Vault Secrets User"]
+#     # }
+#   }
+# }
+#
+# # Wait for the grant to apply before the key is written. Two minutes is usually enough; Microsoft
+# # allows up to ten for Key Vault role assignments.
+# resource "time_sleep" "keyvault_rbac" {
+#   create_duration = "120s"
+#   depends_on      = [module.keyvault_rbac]
+# }
 
 # The admin account's key pair: generated ephemerally, both halves written to the vault write-only,
 # the public half feeding the VM. Ansible signs in with it, because Entra ID sign-in needs the VM to

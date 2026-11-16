@@ -90,10 +90,18 @@ through the terraform-azure action's key vault dance and also passes the runner'
 `key_vault_ip_rules`: on a first run there is no vault yet for the dance to open, so that is what lets
 the vault and the key be created in one apply, and on every run it stops Terraform revoking its own
 access mid-apply (a closing apply that removed the rule had its later secret updates refused, found on
-a live run). The dance removes the rule after each step. It uses access
-policies (a new RBAC assignment takes minutes to apply, too slow for a first run), and purge
-protection is off so a destroy frees its globally unique name (Trivy reports AZU-0016 as MEDIUM, by
-design).
+a live run). The dance removes the rule after each step. Purge protection is off, so a destroy frees the
+vault's globally unique name (Trivy reports AZU-0016 as MEDIUM, by design).
+
+**Access policies are a deliberate exception.** Prefer Azure RBAC on Key Vault wherever you can: it is
+the keyvault module's default and Microsoft's recommendation, and access policies sit outside RBAC's
+audit, PIM and conditions. These stacks use access policies for one reason. The ssh-key module writes
+the key in the same apply that creates the vault, and a new Key Vault role assignment can take up to
+ten minutes to apply, so with RBAC a first apply can fail with 403 Forbidden on the write. Each stack's
+`main.tf` has the RBAC way commented out after the vault, ready to use: the
+[role-assignment](https://github.com/libre-devops/terraform-azurerm-role-assignment) module granting
+the deploying identity Key Vault Secrets Officer (Key Vault Secrets User for anyone who only reads
+the key), and a `time_sleep` that holds the key's write until the grant applies.
 
 ### What a run costs in time
 
