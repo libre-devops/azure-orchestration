@@ -1,8 +1,10 @@
 # An Ubuntu VM running Microsoft Defender for Endpoint, configured by Ansible from Terraform in the
 # same apply. The VM has no public IP and nothing reaches it except SSH from the bastion subnet. With
 # configure = true, the bastion-session module creates an Azure Bastion for the length of the apply,
-# terraform-ansible-role runs libre_devops.python and then libre_devops.mde_linux through it, and the
-# bastion is deleted once they finish. Ansible signs in either with Entra ID (short-lived OpenSSH
+# terraform-ansible-role runs libre_devops.python and then libre_devops.mde_linux through it, then
+# libre_devops.mde_linux_checks tests the agent and libre_devops.test_results_report writes the
+# report (failing the apply if a check that counts failed), and the bastion is deleted once they
+# finish. Ansible signs in either with Entra ID (short-lived OpenSSH
 # certificates for the CI identity) or with the admin account's SSH key, which Terraform generates
 # ephemerally and keeps only in a firewalled key vault (never in plan or state).
 locals {
@@ -22,6 +24,10 @@ locals {
 
   vm_subnet_prefix      = "10.20.1.0/24"
   bastion_subnet_prefix = "10.20.0.0/26"
+
+  # Where the tests leave their report and evidence on the machine running Terraform: a new
+  # directory each plan, so the report only holds this apply's results.
+  test_results_dir = "${abspath(path.root)}/.terraform/test-results/${formatdate("YYYYMMDDhhmmss", plantimestamp())}"
 }
 
 data "azurerm_client_config" "current" {}
@@ -266,20 +272,42 @@ module "python" {
   run_on_every_apply = true
 }
 
-# Defender for Endpoint on the mde_linux hosts, through the same session, once python has run.
+# Defender for Endpoint on the mde_linux hosts, through the same session, once python has run: the
+# agent with real-time protection on (onboarded when the workflow has an onboarding package), then
+# the checks, online, and the report. The report and the evidence stay in local.test_results_dir.
 module "mde_linux" {
   # Pinned to the GitHub tag until the module is published on the Terraform Registry.
   source = "git::https://github.com/libre-devops/terraform-ansible-role.git?ref=4.0.0"
   count  = var.configure ? 1 : 0
 
-  name  = "mde-linux"
-  roles = [{ name = "libre_devops.mde_linux", version = "1.1.1" }]
+  name = "mde-linux"
+  roles = [
+    { name = "libre_devops.mde_linux", version = "1.1.1" },
+    { name = "libre_devops.mde_linux_checks", version = "1.0.1" },
+    { name = "libre_devops.test_results_report", version = "1.0.0" },
+  ]
   hosts = { for name, host in module.bastion_session.ansible_hosts : name => host if contains(host.groups, "mde_linux") }
 
   vars = {
     mde_linux_onboard         = var.mde_onboarding_file != ""
     mde_linux_onboarding_file = var.mde_onboarding_file
     mde_linux_expected_org_id = var.mde_expected_org_id
+    # Real-time protection on, so the checks test the protection rather than passive mode.
+    mde_linux_managed_config = { antivirusEngine = { enforcementLevel = "real_time" } }
+
+    mde_linux_checks_expected_org_id    = var.mde_expected_org_id
+    mde_linux_checks_evidence_dir       = "${local.test_results_dir}/evidence"
+    test_results_report_dir             = local.test_results_dir
+    test_results_report_title           = "mdatp on Ubuntu 24.04, online${var.mde_onboarding_file != "" ? " and onboarded" : ""}"
+    test_results_report_host_label      = "ubuntu2404"
+    test_results_report_expected_checks = ["real_time_protection", "eicar_detection", "cloud_connectivity", "service_survives_reboot"]
+    test_results_report_properties = {
+      stack     = "mde-linux"
+      workspace = terraform.workspace
+      repo      = var.deployed_repo
+      branch    = var.deployed_branch
+      run       = var.run_url
+    }
   }
 
   wait_for_ssh       = false

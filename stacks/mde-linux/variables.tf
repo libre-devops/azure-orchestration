@@ -60,6 +60,12 @@ variable "mde_onboarding_file" {
   default     = ""
 }
 
+variable "run_url" {
+  description = "Optional: a link to the pipeline run, recorded in the test report. The deploy workflow passes its run's URL."
+  type        = string
+  default     = ""
+}
+
 variable "ssh_auth" {
   description = <<DESC
 How Ansible signs in to the VM through the bastion: entra (a short-lived Entra ID OpenSSH

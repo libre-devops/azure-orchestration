@@ -1,7 +1,7 @@
-# Microsoft Defender for Endpoint on a RHEL 9 VM with no route to the internet, installed from
-# Terraform in one apply. Nothing reaches the VM except SSH from the bastion subnet, and the VM
-# reaches nothing: no public IP, no NAT gateway, and the network module's subnets have no default
-# outbound access. With configure = true:
+# Microsoft Defender for Endpoint on a RHEL 9 VM with no route to the internet, installed and
+# tested from Terraform in one apply. Nothing reaches the VM except SSH from the bastion subnet, and
+# the VM reaches nothing: no public IP, no NAT gateway, and the network module's subnets have no
+# default outbound access. With configure = true:
 #
 #   1. download  libre_devops.rpm_repo_download, on the machine running Terraform (which has the
 #                internet), fetches the mdatp RPM from packages.microsoft.com, checking the
@@ -10,12 +10,17 @@
 #                admin account's vaulted SSH key (Entra ID sign-in would need the VM to reach Entra)
 #   3. install   libre_devops.standalone_package_installer pushes the RPM through the bastion and
 #                installs it from the file alone, its signature checked against Microsoft's keys,
-#                then libre_devops.mde_linux starts and configures the agent without Microsoft's
-#                repository
-#   4. close     the bastion is deleted once the install has finished
+#                then libre_devops.mde_linux starts the agent with real-time protection on,
+#                without Microsoft's repository
+#   4. test      libre_devops.mde_linux_checks tests the release the way an offline host can
+#                (protection, the EICAR test, stability, a reboot, the system) and
+#                libre_devops.test_results_report writes the report on the machine running
+#                Terraform, failing the apply if the release fails
+#   5. close     the bastion is deleted once the install and the tests have finished
 #
 # Onboarding needs the Defender cloud, so the agent is installed and started but not onboarded: the
-# stack proves a release installs and runs on a machine that cannot reach anything.
+# stack proves a release installs, protects and survives a reboot on a machine that cannot reach
+# anything. The checks that need the cloud are in the report as skipped, with the reason.
 locals {
   location = lookup(var.regions, var.loc, "uksouth")
   suffix   = "${var.short}-${var.loc}-${terraform.workspace}-001"
@@ -33,9 +38,12 @@ locals {
   vm_subnet_prefix      = "10.30.1.0/24"
   bastion_subnet_prefix = "10.30.0.0/26"
 
-  # Where the download puts the RPMs on the machine running Terraform: a new directory each plan,
-  # so the install only ever sees the packages this apply downloaded.
-  packages_dir = "${abspath(path.root)}/.terraform/mde-packages/${formatdate("YYYYMMDDhhmmss", plantimestamp())}"
+  # Where the download puts the RPMs, and the tests their report, on the machine running Terraform:
+  # a new directory each plan, so the install only sees this apply's packages and the report only
+  # this apply's results.
+  run_stamp        = formatdate("YYYYMMDDhhmmss", plantimestamp())
+  packages_dir     = "${abspath(path.root)}/.terraform/mde-packages/${local.run_stamp}"
+  test_results_dir = "${abspath(path.root)}/.terraform/test-results/${local.run_stamp}"
 }
 
 data "azurerm_client_config" "current" {}
@@ -240,10 +248,11 @@ module "bastion_session" {
   close_after = [module.mde[*].run_ids]
 }
 
-# 3. The install, through the session: the RPM from the file alone (no repositories, so no
-# dependency can come from anywhere else), its signature checked against Microsoft's keys, which
-# libre_devops.mde_linux ships; then the agent started and configured without Microsoft's
-# repository, and not onboarded.
+# 3 and 4. The install and the tests, through the session: the RPM from the file alone (no
+# repositories, so no dependency can come from anywhere else), its signature checked against
+# Microsoft's keys, which libre_devops.mde_linux ships; then the agent started with real-time
+# protection on and not onboarded; then the checks, offline, and the report, which fails the apply
+# if a check that counts failed. The report and the evidence stay in local.test_results_dir.
 module "mde" {
   # Pinned to the GitHub tag until the module is published on the Terraform Registry.
   source = "git::https://github.com/libre-devops/terraform-ansible-role.git?ref=4.0.0"
@@ -253,6 +262,8 @@ module "mde" {
   roles = [
     { name = "libre_devops.standalone_package_installer", version = "1.0.0" },
     { name = "libre_devops.mde_linux", version = "1.1.1" },
+    { name = "libre_devops.mde_linux_checks", version = "1.0.1" },
+    { name = "libre_devops.test_results_report", version = "1.0.0" },
   ]
   hosts = module.bastion_session.ansible_hosts
 
@@ -265,6 +276,29 @@ module "mde" {
     ]
     mde_linux_manage_repository = false
     mde_linux_onboard           = false
+    # Real-time protection on, so the checks test the protection rather than passive mode, and
+    # cloud-delivered protection off, as a host with no route to Microsoft needs: with it on, every
+    # lookup waits for the cloud to time out (on this stack's VM the EICAR detection took 40.5 s,
+    # and 0.4 s with it off). mde_linux_checks' offline_cloud_protection check enforces it.
+    mde_linux_managed_config = {
+      antivirusEngine = { enforcementLevel = "real_time" }
+      cloudService    = { enabled = false }
+    }
+
+    mde_linux_checks_online             = false
+    mde_linux_checks_expected_version   = var.mde_version == "latest" ? "" : var.mde_version
+    mde_linux_checks_evidence_dir       = "${local.test_results_dir}/evidence"
+    test_results_report_dir             = local.test_results_dir
+    test_results_report_title           = "mdatp ${var.mde_version} on RHEL 9 with no internet"
+    test_results_report_host_label      = "rhel9-offline"
+    test_results_report_expected_checks = ["real_time_protection", "eicar_detection", "service_survives_reboot"]
+    test_results_report_properties = {
+      stack     = "mde-rhel-offline"
+      workspace = terraform.workspace
+      repo      = var.deployed_repo
+      branch    = var.deployed_branch
+      run       = var.run_url
+    }
   }
 
   wait_for_ssh       = false

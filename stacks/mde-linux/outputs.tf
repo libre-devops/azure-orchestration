@@ -27,3 +27,8 @@ output "virtual_machine_ids" {
   description = "Map of VM name to VM resource id."
   value       = module.linux_vm.ids
 }
+
+output "test_results_directory" {
+  description = "Where this apply's test report (test-results.md, .json and .xml) and evidence are, on the machine that ran Terraform."
+  value       = var.configure ? local.test_results_dir : null
+}

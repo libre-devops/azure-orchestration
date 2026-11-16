@@ -67,6 +67,12 @@ variable "mde_version" {
   default     = "latest"
 }
 
+variable "run_url" {
+  description = "Optional: a link to the pipeline run, recorded in the test report. The deploy workflow passes its run's URL."
+  type        = string
+  default     = ""
+}
+
 variable "vm_size" {
   description = "Size of the RHEL 9 VM. Defender for Endpoint needs at least 1 core and 1 GB of RAM."
   type        = string

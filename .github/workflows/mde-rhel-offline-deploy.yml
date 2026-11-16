@@ -7,9 +7,12 @@ name: MDE RHEL offline VM - deploy
 #             internet, checking the repository's signature and every checksum
 #   open      the bastion-session module creates an Azure Bastion and fetches the vaulted SSH key
 #   install   libre_devops.standalone_package_installer pushes the RPM through it and installs it
-#             from the file alone, then libre_devops.mde_linux starts and configures the agent
-#   close     the module deletes the bastion and its public IP once the install has finished
+#             from the file alone, then libre_devops.mde_linux starts the agent
+#   test      libre_devops.mde_linux_checks tests the release and libre_devops.test_results_report
+#             writes the report (also the job summary), failing the apply if the release fails
+#   close     the module deletes the bastion and its public IP once the tests have finished
 #
+# The report and the evidence are uploaded as the test-results artifact, whatever happened.
 # Then, ALWAYS, the session's close script: a failed install skips the module's close step, so this
 # deletes the bastion straight away (it does nothing when the apply closed it). Last, when
 # destroy_after is ticked, the stack is destroyed (end-to-end runs).
@@ -74,6 +77,10 @@ jobs:
       - name: Install Ansible
         run: pipx install ansible-core
 
+      # Recorded in the test report, so it says which run produced it.
+      - name: Note the run in the test report
+        run: echo "TF_VAR_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >>"${GITHUB_ENV}"
+
       - name: Apply and install (configure=true)
         uses: libre-devops/terraform-azure@v1
         with:
@@ -114,6 +121,16 @@ jobs:
           else
             echo "Terraform never downloaded the bastion-session module, so no session was opened."
           fi
+
+      # The report (Markdown, JSON, JUnit XML) and the evidence: what the probes read, and
+      # Microsoft's diagnostic package when a check failed.
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.workspace }}
+          path: stacks/mde-rhel-offline/.terraform/test-results/
+          if-no-files-found: warn
 
       - name: Destroy the stack (end-to-end runs)
         if: always() && inputs.destroy_after

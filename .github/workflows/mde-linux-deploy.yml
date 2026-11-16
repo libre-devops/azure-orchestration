@@ -75,6 +75,10 @@ jobs:
       - name: Install Ansible
         run: pipx install ansible-core
 
+      # Recorded in the test report, so it says which run produced it.
+      - name: Note the run in the test report
+        run: echo "TF_VAR_run_url=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >>"${GITHUB_ENV}"
+
       # Optional: without the secret the agent installs but is not onboarded.
       - name: Write the onboarding package to a private temporary file
         env:
@@ -133,6 +137,16 @@ jobs:
           else
             echo "Terraform never downloaded the bastion-session module, so no session was opened."
           fi
+
+      # The report (Markdown, JSON, JUnit XML) and the evidence: what the probes read, and
+      # Microsoft's diagnostic package when a check failed.
+      - name: Keep the test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ inputs.workspace }}
+          path: stacks/mde-linux/.terraform/test-results/
+          if-no-files-found: warn
 
       - name: Destroy the stack (end-to-end runs)
         if: always() && inputs.destroy_after

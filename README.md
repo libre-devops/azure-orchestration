@@ -24,8 +24,17 @@ that apply.
 [`stacks/mde-linux`](./stacks/mde-linux) builds an Ubuntu 24.04 VM and installs Microsoft Defender
 for Endpoint on it with [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux),
 run from Terraform by [terraform-ansible-role](https://github.com/libre-devops/terraform-ansible-role)
-after [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python). The VM has no
-public IP and the runner has no network path to it (no VPN, firewall or private endpoint).
+after [`libre_devops.python`](https://github.com/libre-devops/ansible-role-python). Then
+[`libre_devops.mde_linux_checks`](https://github.com/libre-devops/ansible-role-mde-linux-checks) tests
+the agent (installation, stability, real-time protection and the EICAR test, the cloud connection,
+a reboot) and [`libre_devops.test_results_report`](https://github.com/libre-devops/ansible-role-test-results-report)
+writes the report, failing the apply if a check that counts failed. The VM has no public IP and the
+runner has no network path to it (no VPN, firewall or private endpoint).
+
+The report is in the job summary, and the deploy workflow uploads it with the evidence as the
+`test-results-<workspace>` artifact: `test-results.html` for people (one self-contained page:
+open it first), `test-results.json` for pipelines, `test-results.xml` (JUnit) for test views. A local apply leaves it in
+`stacks/mde-linux/.terraform/test-results/<plan time>/` (the `test_results_directory` output).
 
 ### How the runner reaches the VM
 
@@ -115,6 +124,8 @@ time. An apply with `configure = false` takes as long as the infrastructure chan
 | [LibreDevOpsHelpers](https://www.powershellgallery.com/packages/LibreDevOpsHelpers) | The runner's egress IP, and the key vault firewall dance for the `key` sign-in outside the pipeline. |
 | [`libre_devops.python`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/python/documentation/) | Python on the VM, so the next role can gather facts on any image. |
 | [`libre_devops.mde_linux`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/mde_linux/documentation/) | Defender for Endpoint: repository, package, onboarding and health checks. |
+| [`libre_devops.mde_linux_checks`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/mde_linux_checks/documentation/) | The release tests: 63 checks, readiness first, each with a stable id and a severity. |
+| [`libre_devops.test_results_report`](https://galaxy.ansible.com/ui/standalone/roles/libre_devops/test_results_report/documentation/) | The report: thresholds, waivers and limits, as HTML, Markdown, JSON and JUnit XML. |
 
 ### Running it
 
@@ -150,8 +161,9 @@ these already.
 
 [`stacks/mde-rhel-offline`](./stacks/mde-rhel-offline) builds a RHEL 9 VM that can reach nothing,
 and installs Defender for Endpoint on it from the RPM, downloaded on the runner and pushed through a
-bastion session. It answers the first question about a new `mdatp` release: does it install and
-start on a host with no repositories, from nothing but the image's own packages?
+bastion session, then tests it. It answers the first questions about a new `mdatp` release: does it
+install, protect and survive a reboot on a host with no repositories and no route out, from
+nothing but the image's own packages?
 
 The VM has no public IP and no NAT gateway, and the network module's subnets have no default
 outbound access, so it reaches neither the internet nor its own Red Hat repositories (RHUI). The
@@ -162,13 +174,25 @@ only way in is SSH from the bastion subnet, while a session is open.
 | Download | [`libre_devops.rpm_repo_download`](https://github.com/libre-devops/ansible-role-rpm-repo-download) runs on the runner, which has the internet, and fetches `mdatp` from `packages.microsoft.com/rhel/9/prod`: the workflow's `mde_version`, or the newest. It checks the repository's signature against Microsoft's keys and every checksum on the way down. |
 | Open | The bastion-session module creates a Standard bastion for the apply and fetches the admin account's vaulted SSH key. Entra ID sign-in would need the VM to reach Entra ID, which it cannot. |
 | Install | [`libre_devops.standalone_package_installer`](https://github.com/libre-devops/ansible-role-standalone-package-installer) pushes the RPM through the bastion and installs it from the file alone, with every repository disabled, after checking its signature. [`libre_devops.mde_linux`](https://github.com/libre-devops/ansible-role-mde-linux) then starts and configures the agent with `mde_linux_manage_repository: false`, and does not call the package manager, which would fail on the unreachable repositories. |
-| Close | The bastion and its public IP go once the install has finished; the deploy workflow's always() step and an hourly sweeper catch anything a failed run leaves, as for the mde-linux stack. |
+| Test | [`libre_devops.mde_linux_checks`](https://github.com/libre-devops/ansible-role-mde-linux-checks) tests the release with `mde_linux_checks_online: false`: the package's signature and dependencies, the service, real-time protection and the EICAR test file, the event provider, SELinux, room for the next update, a reboot. [`libre_devops.test_results_report`](https://github.com/libre-devops/ansible-role-test-results-report) writes the report on the runner and fails the apply if a check that counts failed. `real_time_protection`, `eicar_detection` and `service_survives_reboot` must run. |
+| Close | The bastion and its public IP go once the tests have finished; the deploy workflow's always() step and an hourly sweeper catch anything a failed run leaves, as for the mde-linux stack. |
 
-**What it proves:** that the release's signature is Microsoft's, that it installs with nothing but
-the image's own packages (`mdatp` needs `glibc`, `iptables` and `libacl`), and that the agent
-starts. **What it cannot:** onboarding, the cloud connectivity test, security intelligence updates
-or a detection reaching the portal, which all need the Defender cloud. The
-[mde-linux](#mde-linux-vm) stack, which has egress, covers those.
+**What it proves:**
+- the release's signature is Microsoft's;
+- it installs with nothing but the image's own packages (`mdatp` needs `glibc`, `iptables` and
+  `libacl`);
+- the agent starts, protects in real time (the EICAR test file is detected and removed) and comes
+  back after a reboot;
+- it leaves room for the next update.
+
+**What it cannot:** onboarding, the cloud connectivity test, security intelligence updates, scans
+(mdatp scans on demand only once onboarded), or a detection reaching the portal. They all need the
+Defender cloud, and the report lists them as skipped, with the reason. The
+[mde-linux](#mde-linux-vm) stack, which has egress, covers the connectivity and updates.
+
+The report is in the job summary and in the `test-results-<workspace>` artifact, with the
+evidence. A local apply leaves it in `stacks/mde-rhel-offline/.terraform/test-results/<plan time>/`
+(the `test_results_directory` output).
 
 On the first pipeline run (UK South, `mdatp` 101.26101.0000) the download took 14s, opening the
 session 11m 47s, pushing the 157 MB RPM through the bastion and installing and starting the agent
